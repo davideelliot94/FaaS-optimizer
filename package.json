@@ -1,0 +1,30 @@
+{
+  "name": "toolv1",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "adm-zip": "^0.5.9",
+    "blob": "^0.1.0",
+    "config": "^3.3.6",
+    "express": "^4.17.1",
+    "extract-zip": "^2.0.1",
+    "file-saver": "^2.0.5",
+    "fs": "^0.0.1-security",
+    "jszip": "^3.7.1",
+    "log4js": "^6.3.0",
+    "mws-extract-document": "^1.0.1",
+    "node-blob": "^0.0.2",
+    "node-fetch": "^3.1.0",
+    "openwhisk": "^3.21.5",
+    "os": "^0.1.2",
+    "pretty-logs": "^0.5.1",
+    "request": "^2.88.2"
+  }
+}
