@@ -8,6 +8,11 @@ const express = require("express");
 const app = express();
 app.use(express.json());
 
+
+app.get("/",(req,res)=>{
+    res.json({"mex":"Service up and running!"});
+})
+
 app.post("/api/v1/action/merge", async (req, res) => {
     
     logger.log("/api/v1/action/merge","info");
@@ -96,6 +101,17 @@ app.post("/api/v1/action/invoke", (req, res) => {
     const funcName = req.body.name;
     logger.log("/api/v1/action/invoke","info");
     fg.invokeAction(funcName).then((result) => {
+        res.json({ mex: result });
+    });
+
+});
+
+app.post("/api/v1/action/invoke-with-params", (req, res) => {
+
+    const funcName = req.body.name;
+    logger.log("/api/v1/action/invoke","info");
+
+    fg.invokeActionWithParams(funcName,req.body.params).then((result) => {
         res.json({ mex: result });
     });
 

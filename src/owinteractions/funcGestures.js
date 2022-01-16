@@ -2,6 +2,7 @@ const openwhisk = require('openwhisk');
 const conf = require('../../config/conf');
 const fs = require("fs");
 const path = require('path');
+const logger = require("../utils/logger")
 
 //APIHOST VUOLE IP:PORT
 //ANCORA NON HO CAPITO COME FARE CON LE KEY -> per questo "ignore_certs"
@@ -25,14 +26,42 @@ function invokeAction(funcName) {
 
 function invokeActionWithParams(funcName,params) {
     //mettere la specifica dei parametri
+    logger.log(params,"info");
+
 	return new Promise((resolve, reject) => {
-		ow.actions.invoke({name:funcName,blocking:true,result:true}).then((result)=>{
+		ow.actions.invoke({name:funcName,blocking:true,result:true,params}).then((result)=>{
 			resolve(result);
 		}).catch((err) =>{
             resolve(err);
             logger.log(err,"error");
         });
 	});
+}
+
+function invokeActionWithParams(funcName,params) {
+    //mettere la specifica dei parametri
+    logger.log(params,"info");
+    if(params != null && params != undefined){
+        return new Promise((resolve, reject) => {
+            ow.actions.invoke({name:funcName,blocking:true,result:false}).then((result)=>{
+                resolve(result);
+            }).catch((err) =>{
+                resolve(err);
+                logger.log(err,"error");
+            });
+        });
+    }else{
+        return new Promise((resolve, reject) => {
+            ow.actions.invoke({name:funcName,blocking:true,result:false,params}).then((result)=>{
+                resolve(result);
+            }).catch((err) =>{
+                resolve(err);
+                logger.log(err,"error");
+            });
+        });
+    }
+
+	
 }
 
 function createAction(funcName,funcBody){
@@ -84,6 +113,17 @@ function listAction(){
     });
 }
 
+function getParamName(actioName){
+    
+    getAction(actionName).then((result)=>{
+
+    }).catch((err)=>{
+        logger.log("An error occured while getting parameters name","error");
+        logger.log("Error specification: "+err,"error");
+        throw err;
+    })
+}
+/*
 function parseFunction(element,timestamp){
 
     logger.log("Parsing actions from sequence","info");   
@@ -120,8 +160,8 @@ function parseFunction(element,timestamp){
         return tmp;
     }
 }
-
-function parseFunctionV2(element,timestamp){
+*/
+function parseFunction(element,timestamp){
 
     logger.log("Parsing actions from sequence","info");   
 
