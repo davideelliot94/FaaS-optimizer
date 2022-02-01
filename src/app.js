@@ -63,6 +63,9 @@ app.post("/api/v1/action/merge", async (req, res) => {
             /*
                 BISOGNA INVOCARE LA SEQUENZA APPENA FATTA E PRENDERNE LE METRICHE PER VEDERE SE IL MERGE È STATO EFFICACE
                 SE SI POSSO CREARE LA NUOVA FUNZIONE
+
+
+                POSSO EVITARE LA DELETE E FARE LA CREATE CON OVERWRITE == TRUE??
             */
             fg.deleteAction(sequenceName).then(()=>{
                 fg.createAction(sequenceName,wrappedFunc).then(()=>{
@@ -77,7 +80,7 @@ app.post("/api/v1/action/merge", async (req, res) => {
         });
     });
 });
-
+/*
 app.post("/api/v1/listFields", (req, res) => {
 
     var keys = utils.getBodyFields(req.body);
@@ -86,7 +89,7 @@ app.post("/api/v1/listFields", (req, res) => {
     });
 
     res.json({ mex: "END" });
-});
+});*/
 
 app.get("/api/v1/action/list", (req, res) => {
 
