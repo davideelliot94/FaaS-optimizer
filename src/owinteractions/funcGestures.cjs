@@ -1,8 +1,8 @@
 const openwhisk = require('openwhisk');
-const conf = require('../../config/conf');
+const conf = require('../../config/conf.cjs');
 const fs = require("fs");
 const path = require('path');
-const logger = require("../utils/logger")
+const logger = require("../utils/logger.cjs");
 
 //APIHOST VUOLE IP:PORT
 //ANCORA NON HO CAPITO COME FARE CON LE KEY -> per questo "ignore_certs"
@@ -23,20 +23,19 @@ function invokeAction(funcName) {
         });
 	});
 }
-
-function invokeActionWithParams(funcName,params) {
+/*const path uncName,params) {
     //mettere la specifica dei parametri
     logger.log(params,"info");
 
 	return new Promise((resolve, reject) => {
 		ow.actions.invoke({name:funcName,blocking:true,result:true,params}).then((result)=>{
 			resolve(result);
-		}).catch((err) =>{
+		}).catch((err) =>{r
             resolve(err);
             logger.log(err,"error");
         });
 	});
-}
+}*/
 
 function invokeActionWithParams(funcName,params) {
     //mettere la specifica dei parametri
