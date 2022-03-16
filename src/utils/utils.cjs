@@ -1,6 +1,4 @@
-function getBodyFields(body){
-    return Object.keys(body);
-}
+const logger = require("./logger.cjs");
 
 function mergeFuncs(funcs,seqName){
 
@@ -26,4 +24,4 @@ function mergeFuncs(funcs,seqName){
     return wrappedFunc;
 }
 
-module.exports = { getBodyFields,mergeFuncs};
+module.exports = {mergeFuncs};

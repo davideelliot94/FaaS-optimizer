@@ -4,7 +4,7 @@ import path from "path";
 //const utils = require("./utils/utils");
 import * as utils from "./utils/utils.cjs";
 //const fg = require("./owinteractions/funcGestures");
-import * as fg from "./owinteractions/funcGestures.cjs";
+import * as fg from "./owinteractions/funcGestures.js";
 //const zipgest = require("./utils/zipGestures.cjs");
 import * as zipgest from "./utils/zipGestures.cjs";
 //const logger = require("./utils/logger.cjs");
