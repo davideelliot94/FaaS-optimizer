@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: faasopt-deployment
+  name: faas-optimizer
   labels:
     app: faas-optimizer
 spec:
@@ -16,6 +16,6 @@ spec:
     spec:
       containers:
       - name: faas-optimizer
-        image: davideelliot/faas-optimizer:0.1
+        image: davideelliot/faas-optimizer:0.2
         ports:
         - containerPort: 4000
