@@ -16,6 +16,6 @@ spec:
     spec:
       containers:
       - name: faas-optimizer
-        image: davideelliot/faas-optimizer:0.2
+        image: davideelliot/faas-optimizer:0.3
         ports:
         - containerPort: 4000
