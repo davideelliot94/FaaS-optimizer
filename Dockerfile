@@ -10,4 +10,4 @@ RUN npm install
 
 EXPOSE 4000
 
-CMD npm start > faasopt.log 2>&1
+CMD npm start >> faasopt.log 2>&1
