@@ -1,5 +1,7 @@
 FROM node:latest
 
+ENV API_HOST="owdev-apigateway.openwhisk.svc.cluster.local"
+
 COPY . /src
 
 WORKDIR /src

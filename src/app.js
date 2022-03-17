@@ -9,13 +9,20 @@ import * as fg from "./owinteractions/funcGestures.js";
 import * as zipgest from "./utils/zipGestures.cjs";
 //const logger = require("./utils/logger.cjs");
 import * as logger from "./utils/logger.cjs";
-
-//const express = require("express");
 import express from 'express';
+import fetch from 'node-fetch';
+//const conf = require("../config/conf.cjs");
+import * as conf from '../config/conf.cjs';
+
+import * as https from 'https';
+
 const app = express();
 app.use(express.json());
 export default app;
 
+const __dirname = path.resolve();
+
+const httpsAgent = conf.httpsAgent;
 
 app.get("/",(req,res)=>{
     res.json({"mex":"Service up and running!"});
@@ -38,9 +45,10 @@ app.post("/api/v1/action/merge", async (req, res) => {
 
 
     })*/
-
+    
     fg.getAction(sequenceName).then((result) => {
         var promises = [];
+        
         if (result.toString().includes("OpenWhiskError")) {
             res.json({ mex: result });
             return;
@@ -71,9 +79,6 @@ app.post("/api/v1/action/merge", async (req, res) => {
             /*
                 BISOGNA INVOCARE LA SEQUENZA APPENA FATTA E PRENDERNE LE METRICHE PER VEDERE SE IL MERGE È STATO EFFICACE
                 SE SI POSSO CREARE LA NUOVA FUNZIONE
-
-
-                POSSO EVITARE LA DELETE E FARE LA CREATE CON OVERWRITE == TRUE??
             */
             fg.deleteAction(sequenceName).then(()=>{
                 fg.createAction(sequenceName,wrappedFunc).then(()=>{
@@ -88,76 +93,189 @@ app.post("/api/v1/action/merge", async (req, res) => {
         });
     });
 });
-/*
-app.post("/api/v1/listFields", (req, res) => {
 
-    var keys = utils.getBodyFields(req.body);
-    keys.forEach(element => {
-        console.log(element);
+app.post("/api/v1/action/mergeV2", async (req, res) => {
+    
+    logger.log("/api/v1/action/mergeV2","info");
+    var funcs = [];
+    const sequenceName = req.body.name;
+
+    /*
+        effettuo il controllo:
+            se la somma dei wait time delle funzioni che compongono la sequence è > della duration delle funzioni stesse
+            devo fare il merge
+    
+    fg.invokeActionWithParams().then((result)=>{
+        const duration = result.duration;
+        const waitTime = result.waitTime;
+
+
+    })*/
+
+    fg.getAction(sequenceName).then((result) => {
+        var promises = [];
+        
+        if (Object.keys(result).includes("error")) {
+            logger.log("Error getting sequence: " + sequenceName,"warn");
+            logger.log(JSON.stringify(result),"warn");
+            res.json(result);
+            return;
+        };
+
+        result.exec.components.forEach(funcName => {
+            var tmp = funcName.split('/');
+            promises.push(
+                
+                fg.getAction(tmp[tmp.length -1])
+                    .then((result) => {
+                        const timestamp = Date.now();
+                        var parsed = parseFunction(result,timestamp);
+                        if(parsed.binary){
+                            zipgest.cleanDirs(timestamp);
+                        }
+                        return parsed;
+
+                    }).catch((error) => {
+                        logger.log(error,"error");
+                    })
+            );
+        });
+
+        Promise.all(promises).then((result) =>
+            funcs = result
+        ).then(() => {
+            
+            var wrappedFunc = utils.mergeFuncs(funcs, sequenceName);
+            /*
+                BISOGNA INVOCARE LA SEQUENZA APPENA FATTA E PRENDERNE LE METRICHE PER VEDERE SE IL MERGE È STATO EFFICACE
+                SE SI POSSO CREARE LA NUOVA FUNZIONE
+            */
+            fg.deleteAction(sequenceName).then(()=>{
+                fg.createAction(sequenceName,wrappedFunc,"nodejs:10").then(()=>{
+                    res.json(wrappedFunc);
+                }).catch(()=>{
+                    res.json({ mex: "An error occurred while creating new action" });
+                })    
+            }).catch(()=>{
+                res.json({ mex: "An error occurred while deleting old sequence action" });
+            });
+
+        });
     });
-
-    res.json({ mex: "END" });
-});*/
+});
 
 app.get("/api/v1/action/list", (req, res) => {
-
-    fg.listAction().then((result) => {
-        res.json({ mex: result });
+ 
+    console.log(__dirname);
+    fetch('https://'+conf.API_HOST+'/api/v1/namespaces/_/actions',{
+        headers: {
+            'Authorization':'Basic '+ btoa(conf.API_KEY)
+        },
+        agent: httpsAgent
+    })
+    .then(response => response.json())
+    .then(data => {
+        res.json(data);
+        logger.log("/api/v1/action/list" + data,"info")
     });
-
 });
 
 app.post("/api/v1/action/invoke", (req, res) => {
 
-    const funcName = req.body.name;
     logger.log("/api/v1/action/invoke","info");
-    fg.invokeAction(funcName).then((result) => {
-        res.json({ mex: result });
+    fetch('https://'+conf.API_HOST+'/api/v1/namespaces/_/actions/'+req.body.name+'?blocking=true',{
+        headers: {
+            'Authorization':'Basic '+ btoa(conf.API_KEY)
+        },
+        agent: httpsAgent
+    })
+    .then(response => response.json())
+    .then(data => {
+        logger.log("/api/v1/action/invoke" + data,"info");
+        res.json({mex:data});
     });
 
 });
 
 app.post("/api/v1/action/invoke-with-params", (req, res) => {
 
-    const funcName = req.body.name;
+    
     logger.log("/api/v1/action/invoke","info");
 
-    fg.invokeActionWithParams(funcName,req.body.params).then((result) => {
-        res.json({ mex: result });
-    });
+    (async () => {
+        const rawResponse = await fetch('https://'+conf.API_HOST+'/api/v1/namespaces/_/actions/'+req.body.name+'?blocking=true', {
+          method: 'POST',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization':'Basic '+ btoa(conf.API_KEY)
+          },
+          agent: httpsAgent,
+          body: JSON.stringify(req.body.params)
+        });
+        const content = await rawResponse.json();
+        logger.log("/api/v1/action/invoke-with-params "+ JSON.stringify(content),"info");
+        res.json(content);
+      })()
 
 });
 
 app.post("/api/v1/action/get", (req, res) => {
 
+ 
     logger.log("/api/v1/action/get","info");
-    const funcName = req.body.name;
-    fg.getAction(funcName).then((result) => {
-        res.json({ mex: result });
+    fetch('https://'+conf.API_HOST+'/api/v1/namespaces/_/actions/'+req.body.name+'?blocking=true',{
+        method: 'GET',
+        headers: {
+            'Authorization':'Basic '+ btoa(conf.API_KEY)
+        },
+        agent: httpsAgent
+      })
+    .then(response => response.json())
+    .then(data => {
+        res.json(data);
+        logger.log("/api/v1/action/get " + data,"info")
     });
 
 });
 
 app.post("/api/v1/action/delete", (req, res) => {
 
-    const funcName = req.body.name;
     logger.log("/api/v1/action/delete","info");
-    fg.deleteAction(funcName).then((result) => {
-        res.json({ mex: result });
+    fetch('https://'+conf.API_HOST+'/api/v1/namespaces/_/actions/'+req.body.name,{
+        method: 'DELETE',
+        headers: {
+            'Authorization':'Basic '+ btoa(conf.API_KEY)
+        },
+        agent: httpsAgent
+      })
+    .then(response => response.json())
+    .then(data => {
+        res.json(data);
+        logger.log("/api/v1/action/delete " + data,"info")
     });
-
 });
 
 app.post("/api/v1/action/create", (req, res) => {
 
     logger.log("/api/v1/action/create","info");
-    const funcName = req.body.name;
-    const funcBody = req.body.fbody;
     
-    fg.createAction(funcName, funcBody).then((result) => {
-        res.json({ mex: result });
-    });
-
+    (async () => {
+        const rawResponse = await fetch('https://'+conf.API_HOST+'/api/v1/namespaces/_/actions/'+req.body.name+'?overwrite=true', {
+          method: 'PUT',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization':'Basic '+ btoa(conf.API_KEY)
+          },
+          agent: httpsAgent,
+          body: JSON.stringify({"namespace":"_","name":req.body.name,"exec":{"kind":req.body.fkind,"code":req.body.fbody},"annotations":[{"key":"web-export","value":true},{"key":"raw-http","value":false},{"key":"final","value":true}]})
+        });
+        const content = await rawResponse.json();
+      
+        logger.log("/api/v1/action/create "+ content,"info");
+        res.json({mex:content});
+      })()
 });
 
 function parseFunction(element,timestamp){
