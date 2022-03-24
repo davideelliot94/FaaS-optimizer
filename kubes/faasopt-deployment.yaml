@@ -16,6 +16,9 @@ spec:
     spec:
       containers:
       - name: faas-optimizer
-        image: davideelliot/faas-optimizer:0.4
+        image: davideelliot/faas-optimizer:test-3
+        env:
+        - name: API_HOST
+          value: "owdev-nginx.openwhisk.svc.cluster.local"
         ports:
         - containerPort: 4000
