@@ -1,14 +1,20 @@
 const fs = require('fs');
 const path = require("path");
+var AdmZip = require('adm-zip');
 
 function extractZipLocal (timestamp) {
 
-    var AdmZip = require('adm-zip');
+    
     logger.log("Extracting zip action in directory /zipped/"+timestamp,"info");
     var file = new AdmZip(path.join(__dirname, '../../src')+"/zipped/"+timestamp+"/func.zip");
     file.extractAllTo(path.join(__dirname, '../../src')+"/extracted/"+timestamp , true);
     logger.log("Zip action succesfully extracted","info");
 
+}
+
+function zipLocal(timestamp){
+  var file = new AdmZip(path.join(__dirname, '../../src')+"/utils/binaries/"+timestamp+".zip");
+  file.addLocalFolder(path.join(__dirname, '../../src')+"/utils/binaries/"+timestamp);
 }
 
 function cleanDirs(subdir){

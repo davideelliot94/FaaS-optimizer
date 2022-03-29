@@ -1,174 +1,161 @@
-const openwhisk = require('openwhisk');
-const conf = require('../../config/conf');
-const fs = require("fs");
-const path = require('path');
-const logger = require("../utils/logger")
+import * as conf from '../../config/conf.cjs';
+import * as fs from 'fs';
+import path, { resolve } from "path";
+import * as logger from ".././utils/logger.cjs";
+import fetch from 'node-fetch';
+const httpsAgent = conf.httpsAgent;
+
+const __dirname = path.resolve();
 
 //APIHOST VUOLE IP:PORT
 //ANCORA NON HO CAPITO COME FARE CON LE KEY -> per questo "ignore_certs"
-const options = {
-	apihost: conf.API_HOST,
-	api_key:conf.API_KEY,
-    ignore_certs:true
-}
-const ow = openwhisk(options);
+
+//metti il catch sul fetchv e try/catch
 
 function invokeAction(funcName) {
-	return new Promise((resolve, reject) => {
-		ow.actions.invoke({name:funcName,blocking:true,result:true}).then((result)=>{
-			resolve(result);
-		}).catch((err) =>{
-            resolve(err);
-            logger.log(err,"error");
-        });
-	});
+	logger.log("/api/v1/action/invoke","info");
+    fetch('https://'+conf.API_HOST+'/api/v1/namespaces/_/actions/'+funcName+'?blocking=true',{
+        headers: {
+            'Authorization':'Basic '+ btoa(conf.API_KEY)
+        },
+        agent: httpsAgent
+    })
+    .then(response => response.json())
+    .then(data => {
+        logger.log("/api/v1/action/invoke" + data,"info");
+        return data;
+    });
 }
 
-function invokeActionWithParams(funcName,params) {
-    //mettere la specifica dei parametri
-    logger.log(params,"info");
-
-	return new Promise((resolve, reject) => {
-		ow.actions.invoke({name:funcName,blocking:true,result:true,params}).then((result)=>{
-			resolve(result);
-		}).catch((err) =>{
-            resolve(err);
-            logger.log(err,"error");
-        });
-	});
-}
-
+//metti il catch sul fetchv e try/catch
 function invokeActionWithParams(funcName,params) {
     //mettere la specifica dei parametri
     logger.log(params,"info");
     if(params != null && params != undefined){
-        return new Promise((resolve, reject) => {
-            ow.actions.invoke({name:funcName,blocking:true,result:false}).then((result)=>{
-                resolve(result);
-            }).catch((err) =>{
-                resolve(err);
-                logger.log(err,"error");
+        (async () => {
+            const rawResponse = await fetch('https://'+conf.API_HOST+'/api/v1/namespaces/_/actions/'+funcName+'?blocking=true', {
+              method: 'POST',
+              headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'Authorization':'Basic '+ btoa(conf.API_KEY)
+              },
+              agent: httpsAgent,
+              body: JSON.stringify(params)
             });
-        });
+            const content = await rawResponse.json();
+            logger.log("/api/v1/action/invoke-with-params"+ JSON.stringify(content),"info");
+            return content;
+          })()
+    
     }else{
-        return new Promise((resolve, reject) => {
-            ow.actions.invoke({name:funcName,blocking:true,result:false,params}).then((result)=>{
-                resolve(result);
-            }).catch((err) =>{
-                resolve(err);
-                logger.log(err,"error");
-            });
+        fetch('https://'+conf.API_HOST+'/api/v1/namespaces/_/actions/'+funcName+'?blocking=true',{
+        headers: {
+            'Authorization':'Basic '+ btoa(conf.API_KEY)
+        },
+        agent: httpsAgent
+        })
+        .then(response => response.json())
+        .then(data => {
+            logger.log("/api/v1/action/invoke" + data,"info");
+            return data;
+        }).catch(err =>{
+            logger.log("An error occurred while invoking action: "+funcName,"WARN")
+            res.json("An error occurred while invoking action: "+funcName);
         });
     }
 
 	
 }
 
-function createAction(funcName,funcBody){
-    logger.log("Creating action "+funcName,"info");
-    return new Promise((resolve, reject) => {
-		ow.actions.create({name:funcName,action:funcBody}).then((result)=>{
-			resolve(result);
-		}).catch((err) =>{
-            resolve(err);
-            logger.log(err,"error");
-        });
-	});
-}
+///metti il catch sul fetchv e try/catch
 
-function deleteAction(funcName){
-    logger.log("Deleting action "+funcName,"info");
-    return new Promise((resolve, reject) => {
-		ow.actions.delete({name:funcName}).then((result)=>{
-			resolve(result);
-		}).catch((err) =>{
-            resolve(err);
-            logger.log(err,"error");
-        });
-	});
-}
+function createAction(funcName,funcBody,fkind){
+    if(fkind == "binary"){
 
-function getAction(funcName){ 
-    logger.log("Getting action "+funcName,"info");   
-    return new Promise((resolve, reject) => {
-		ow.actions.get({name:funcName}).then((result)=>{
-			resolve(result);
-		}).catch((err) =>{
-            resolve(err);
-            logger.log(err,"error");
-        });
-	});
-}
+        const fullPath = path.join(__dirname,"../utils/binaries/")+funcBody;
 
-function listAction(){
-    logger.log("Listing actions","info");   
-
-    return new Promise((resolve, reject) => {
-		ow.actions.list().then((result)=>{
-			resolve(result);
-		}).catch((err) =>{
-            resolve(err);
-            logger.log(err,"error");
-        });
-    });
-}
-
-function getParamName(actioName){
+        (async () => {
+            const rawResponse = await fetch('https://'+conf.API_HOST+'/api/v1/namespaces/_/actions/'+funcName+'?overwrite=true', {
+              method: 'PUT',
+              headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'Authorization':'Basic '+ btoa(conf.API_KEY)
+              },
+              agent: httpsAgent,
+              body: JSON.stringify({"namespace":"_","name":funcName,"exec":{"kind":fkind,"code":funcBody},"annotations":[{"key":"web-export","value":true},{"key":"raw-http","value":false},{"key":"final","value":true}]})
+            });
+            const content = await rawResponse.json();
+            
+            logger.log("/api/v1/action/create "+ JSON.stringify(content),"info");
+            return content;
+          })()
+    }else{
+        (async () => {
+            const rawResponse = await fetch('https://'+conf.API_HOST+'/api/v1/namespaces/_/actions/'+funcName+'?overwrite=true', {
+              method: 'PUT',
+              headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'Authorization':'Basic '+ btoa(conf.API_KEY)
+              },
+              agent: httpsAgent,
+              body: JSON.stringify({"namespace":"_","name":funcName,"exec":{"kind":fkind,"code":funcBody},"annotations":[{"key":"web-export","value":true},{"key":"raw-http","value":false},{"key":"final","value":true}]})
+            });
+            const content = await rawResponse.json();
+            
+            logger.log("/api/v1/action/create "+ JSON.stringify(content),"info");
+            return content;
+          })()
+    }
     
-    getAction(actionName).then((result)=>{
+}
 
-    }).catch((err)=>{
-        logger.log("An error occured while getting parameters name","error");
-        logger.log("Error specification: "+err,"error");
-        throw err;
-    })
+//metti il catch sul fetchv e try/catch
+async function deleteAction(funcName){
+
+    logger.log("Deleting action "+funcName,"info");
+    
+    const response = await fetch('https://'+conf.API_HOST+'/api/v1/namespaces/_/actions/'+funcName,{
+        method: 'DELETE',
+        headers: {
+            'Authorization':'Basic '+ btoa(conf.API_KEY)
+        },
+        agent: httpsAgent
+    });
+    const data = response.json();
+    
+    logger.log("/api/v1/action/delete " + JSON.stringify(data),"info");
+    return data;
+
+}
+
+//metti il catch sul fetchv e try/catch
+
+async function getAction(funcName){ 
+
+    logger.log("Getting action "+funcName,"info");   
+
+    const response = await fetch('https://'+conf.API_HOST+'/api/v1/namespaces/_/actions/'+funcName+'?blocking=true',{
+        method: 'GET',
+        headers: {
+            'Authorization':'Basic '+ btoa(conf.API_KEY)
+        },
+        agent: httpsAgent
+      });
+
+    const data =  response.json();
+    logger.log("/api/v1/action/get " + data,"info");
+
+    return data;
 }
 /*
 function parseFunction(element,timestamp){
 
     logger.log("Parsing actions from sequence","info");   
-
-
     if (element.exec.binary) {
         
-        //let buff = Buffer.from(element.exec.code, 'base64');
-        let buff = new Buffer(element.exec.code, 'base64');
-        fs.mkdirSync(__dirname + "/zipped/" + timestamp, { recursive: true });
-        fs.writeFileSync(__dirname + "/zipped/" + timestamp + '/func.zip', buff);
-
-        zipgest.extractZipLocal(timestamp);
-       
-        var func = fs.readFileSync(path.join(__dirname,"/extracted/"+timestamp+"/index.js"), 'utf8');
-        var tmp = {
-            "name": element.name, //string
-            "code": func.substring(func.indexOf("function"), func.indexOf("function") + 9).concat(" " + element.name).concat(func.substring(func.indexOf("("))),
-            "invocation": element.name + "(",
-            "param": func.substring(func.indexOf("(") + 1, func.indexOf(")")),
-            "binary": element.exec.binary
-        }
-        return tmp;          
-    }
-    else {
-        var func = element.exec.code;
-        var tmp = {
-            "name": element.name, //string
-            "code": func.substring(func.indexOf("function"), func.indexOf("function") + 9).concat(" " + element.name).concat(func.substring(func.indexOf("("))),
-            "invocation": element.name + "(",
-            "param": func.substring(func.indexOf("(") + 1, func.indexOf(")")),
-            "binary": element.exec.binary
-        }
-        return tmp;
-    }
-}
-*/
-function parseFunction(element,timestamp){
-
-    logger.log("Parsing actions from sequence","info");   
-
-    if (element.exec.binary) {
-        
-       
-
         //let buff = Buffer.from(element.exec.code, 'base64');
         let buff = new Buffer(element.exec.code, 'base64');
         const currDir =  path.join(__dirname,"../zipped/"+timestamp);
@@ -198,6 +185,6 @@ function parseFunction(element,timestamp){
         }
         return tmp;
     }
-}
+}*/
 
-module.exports = {listAction,invokeAction,getAction,deleteAction,createAction,invokeActionWithParams,parseFunction};
+export {invokeAction,getAction,deleteAction,createAction,invokeActionWithParams};
