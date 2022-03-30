@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: faas-optimizer
+  labels:
+    app: faas-optimizer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: faas-optimizer
+  template:
+    metadata:
+      labels:
+        app: faas-optimizer
+    spec:
+      containers:
+      - name: faas-optimizer
+        image: davideelliot/faas-optimizer:0.4
+        ports:
+        - containerPort: 4000
+      - name: mongodb
+        image: mongo
+        ports:
+        - containerPort: 8081

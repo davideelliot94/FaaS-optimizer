@@ -1,20 +1,12 @@
-
-//const fs = require("fs");
 import * as fs from 'fs';
 import path from "path";
-//const utils = require("./utils/utils");
-import * as utils from "./utils/utils.cjs";
-//const fg = require("./owinteractions/funcGestures");
+import * as utils from "./utils/utils.js";
 import * as fg from "./owinteractions/funcGestures.js";
-//const zipgest = require("./utils/zipGestures.cjs");
 import * as zipgest from "./utils/zipGestures.cjs";
-//const logger = require("./utils/logger.cjs");
 import * as logger from "./utils/logger.cjs";
 import express from 'express';
 import fetch from 'node-fetch';
-//const conf = require("../config/conf.cjs");
 import * as conf from '../config/conf.cjs';
-import * as dLang from '../src/utils/lang_parser.cjs';
 import * as https from 'https';
 const app = express();
 app.use(express.json());
@@ -186,9 +178,6 @@ app.post("/api/v1/action/mergeV3", async (req, res) => {
                 });
 
             }
-            
-            
-
         });
     }).catch(err => {
         logger.log("An error occurred there's no sequence : " +sequenceName,"WARN")
@@ -386,11 +375,11 @@ function parseFunction(element,timestamp){
             "binary": element.exec.binary,
             "kind": ""
         }
-        tmp.kind = dLang.detectLang(tmp.code);
+        tmp.kind = utils.detectLangSimple(tmp.code);
         return tmp;          
     }
     else {
-        var kind = dLang.detectLang(element.exec.code)
+        var kind = utils.detectLangSimple(element.exec.code)
         if(kind == "nodejs"){
             var func = element.exec.code;
             var tmp = {
@@ -399,7 +388,7 @@ function parseFunction(element,timestamp){
                 "invocation": element.name + "(",
                 "param": func.substring(func.indexOf("(") + 1, func.indexOf(")")),
                 "binary": element.exec.binary,
-                "kind": dLang.detectLang(func)
+                "kind": utils.detectLangSimple(func)
             }
 
             return tmp;
@@ -413,7 +402,7 @@ function parseFunction(element,timestamp){
                 "invocation": element.name + "(",
                 "param": func.substring(func.indexOf("(") + 1, func.indexOf(")")),
                 "binary": element.exec.binary,
-                "kind": dLang.detectLang(func)
+                "kind": utils.detectLangSimple(func)
             }
 
             return tmp;
@@ -452,5 +441,5 @@ app.post("/api/v1/metrics/get", (req, res) => {
         
 });
 
-module.exports = app;
+export default app;
 

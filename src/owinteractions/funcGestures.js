@@ -1,7 +1,7 @@
 import * as conf from '../../config/conf.cjs';
 import * as fs from 'fs';
 import path, { resolve } from "path";
-import * as logger from ".././utils/logger.cjs";
+import * as logger from "../utils/logger.cjs";
 import fetch from 'node-fetch';
 const httpsAgent = conf.httpsAgent;
 
@@ -90,23 +90,7 @@ function createAction(funcName,funcBody,fkind){
             
             logger.log("/api/v1/action/create "+ JSON.stringify(content),"info");
             return content;
-          })()
-    }else{
-        (async () => {
-            const rawResponse = await fetch('https://'+conf.API_HOST+'/api/v1/namespaces/_/actions/'+funcName+'?overwrite=true', {
-              method: 'PUT',
-              headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-                'Authorization':'Basic '+ btoa(conf.API_KEY)
-              },
-              agent: httpsAgent,
-              body: JSON.stringify({"namespace":"_","name":funcName,"exec":{"kind":fkind,"code":funcBody},"annotations":[{"key":"web-export","value":true},{"key":"raw-http","value":false},{"key":"final","value":true}]})
-            });
-            const content = await rawResponse.json();
             
-            logger.log("/api/v1/action/create "+ JSON.stringify(content),"info");
-            return content;
           })()
     }
     

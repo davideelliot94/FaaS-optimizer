@@ -1,6 +1,4 @@
-const { fstat } = require("fs");
-const logger = require("./logger.cjs");
-const fs = require('fs');
+import * as logger from "./logger.cjs";
 import * as fs from 'fs';
 import path from "path";
 import os from 'os';
@@ -126,6 +124,14 @@ function mergeFuncsBinary(funcs,seqName){
     return timestamp;
 }
 
+function detectLangSimple(snippet){
+    if(snippet.includes("function ")){
+        return "nodejs";
+    }
+    if(snippet.includes("def ")){
+        return "python";
+    }
+}
 
 
-module.exports = {mergeFuncs,mergeFuncsBinary};
+export {mergeFuncs,mergeFuncsBinary,detectLangSimple};

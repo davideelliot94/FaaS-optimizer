@@ -1,7 +1,6 @@
 FROM node:latest
 
-#ENV API_HOST="owdev-nginx.openwhisk.svc.cluster.local"
-ENV API_HOST=""
+ENV API_HOST="owdev-apigateway.openwhisk.svc.cluster.local"
 ENV AMBIENT=""
 
 COPY . /src
