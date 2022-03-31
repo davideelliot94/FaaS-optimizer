@@ -1,8 +1,9 @@
 const config = require('config');
 const https = require('https');
 const PORT = config.get('default.port');
-const API_HOST =config.get('openwhisk.apihost')+":"+config.get('openwhisk.port');
+//const API_HOST =config.get('openwhisk.apihost')+":"+config.get('openwhisk.port');
 //const API_HOST = process.env.API_HOST;
+const API_HOST = process.env.API_HOST != nulk ? process.env.API_HOST:config.get('openwhisk.apihost')+":"+config.get('openwhisk.port');
 const AMBIENT = process.env.AMBIENT;
 const kinds = config.get('openwhisk.kinds');
 const API_KEY=config.get('openwhisk.apikey');
