@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import path, { resolve } from "path";
 import * as logger from "../utils/logger.cjs";
 import fetch from 'node-fetch';
+import { errorMonitor } from 'events';
 const httpsAgent = conf.httpsAgent;
 
 const __dirname = path.resolve();
@@ -70,11 +71,30 @@ function invokeActionWithParams(funcName,params) {
 
 ///metti il catch sul fetchv e try/catch
 
-function createAction(funcName,funcBody,fkind){
+async function createAction(funcName,funcBody,fkind){
     if(fkind == "binary"){
 
         const fullPath = path.join(__dirname,"../utils/binaries/")+funcBody;
 
+        (async () => {
+            const rawResponse = await fetch('https://'+conf.API_HOST+'/api/v1/namespaces/_/actions/'+funcName+'?overwrite=true', {
+              method: 'PUT',
+              headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'Authorization':'Basic '+ btoa(conf.API_KEY)
+              },
+              agent: httpsAgent,
+              body: JSON.stringify({"namespace":"_","name":funcName,"exec":{"kind":fkind,"code":fullPath},"annotations":[{"key":"web-export","value":true},{"key":"raw-http","value":false},{"key":"final","value":true}]})
+            });
+            const content = await rawResponse.json();
+            
+            logger.log("/api/v1/action/create "+ JSON.stringify(content),"info");
+            return content;
+            
+          })()
+    }
+    else{
         (async () => {
             const rawResponse = await fetch('https://'+conf.API_HOST+'/api/v1/namespaces/_/actions/'+funcName+'?overwrite=true', {
               method: 'PUT',
@@ -99,6 +119,34 @@ function createAction(funcName,funcBody,fkind){
 //metti il catch sul fetchv e try/catch
 async function deleteAction(funcName){
 
+
+    try {
+        fetch('https://'+conf.API_HOST+'/api/v1/namespaces/_/actions/'+funcName,{
+        method: 'DELETE',
+        headers: {
+            'Authorization':'Basic '+ btoa(conf.API_KEY)
+        },
+        agent: httpsAgent
+      })
+        .then(response => response.json())
+        .then(data => {
+            
+            logger.log("/api/v1/action/delete " + JSON.stringify(data),"info");
+        }).catch(err =>{
+            
+            logger.log("An error occurred while deleting action: "+funcName,"WARN")
+            logger.log(err,"WARN");
+            return err;
+        });
+    } catch (error) {
+        
+        logger.log("An error occurred while deleting action: "+funcName,"error");
+        logger.log(err,"ERROR");
+        return error;
+    }
+
+/*
+
     logger.log("Deleting action "+funcName,"info");
     
     const response = await fetch('https://'+conf.API_HOST+'/api/v1/namespaces/_/actions/'+funcName,{
@@ -110,8 +158,37 @@ async function deleteAction(funcName){
     });
     const data = response.json();
     
-    logger.log("/api/v1/action/delete " + JSON.stringify(data),"info");
+    logger.log("/api/v1/action/delete " + data,"info");
     return data;
+*/
+}
+
+function deleteActionCB(funcName,callback){
+
+
+    try {
+        fetch('https://'+conf.API_HOST+'/api/v1/namespaces/_/actions/'+funcName,{
+        method: 'DELETE',
+        headers: {
+            'Authorization':'Basic '+ btoa(conf.API_KEY)
+        },
+        agent: httpsAgent
+      })
+        .then(response => response.json())
+        .then(data => {
+            
+            logger.log("/api/v1/action/delete " + JSON.stringify(data),"info");
+            callback();
+        }).catch(err =>{
+            
+            logger.log("An error occurred while deleting action: "+funcName,"WARN")
+            logger.log(err,"WARN");
+        });
+    } catch (error) {
+        
+        logger.log("An error occurred while deleting action: "+funcName,"error");
+        logger.log(err,"ERROR");
+    }
 
 }
 
@@ -171,4 +248,4 @@ function parseFunction(element,timestamp){
     }
 }*/
 
-export {invokeAction,getAction,deleteAction,createAction,invokeActionWithParams};
+export {invokeAction,getAction,deleteAction,createAction,invokeActionWithParams,deleteActionCB};

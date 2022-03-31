@@ -11,79 +11,12 @@ import * as https from 'https';
 const app = express();
 app.use(express.json());
 
+const httpsAgent = conf.httpsAgent;
+
 
 app.get("/",(req,res)=>{
     res.json({"mex":"Service up and running!"});
 });
-/*
-app.post("/api/v1/action/merge", async (req, res) => {
-    
-    logger.log("/api/v1/action/merge","info");
-    var funcs = [];
-    const sequenceName = req.body.name;
-
-    
-        effettuo il controllo:
-            se la somma dei wait time delle funzioni che compongono la sequence è > della duration delle funzioni stesse
-            devo fare il merge
-    
-    fg.invokeActionWithParams().then((result)=>{
-        const duration = result.duration;
-        const waitTime = result.waitTime;
-
-
-    })
-
-    fg.getAction(sequenceName).then((result) => {
-        var promises = [];
-        if (result.toString().includes("OpenWhiskError")) {
-            res.json({ mex: result });
-            return;
-        };
-        result.exec.components.forEach(funcName => {
-            promises.push(
-
-                fg.getAction(funcName)
-                    .then((result) => {
-                        const timestamp = Date.now();
-                        var parsed = parseFunction(result,timestamp);
-                        if(parsed.binary){
-                            zipgest.cleanDirs(timestamp);
-                        }
-                        return parsed;
-
-                    }).catch((error) => {
-                        logger.log(error,"error");
-                    })
-            );
-        });
-
-        Promise.all(promises).then((result) =>
-            funcs = result
-        ).then(() => {
-            
-            var wrappedFunc = utils.mergeFuncs(funcs, sequenceName);
-            
-                BISOGNA INVOCARE LA SEQUENZA APPENA FATTA E PRENDERNE LE METRICHE PER VEDERE SE IL MERGE È STATO EFFICACE
-                SE SI POSSO CREARE LA NUOVA FUNZIONE
-
-
-                POSSO EVITARE LA DELETE E FARE LA CREATE CON OVERWRITE == TRUE??
-            
-            fg.deleteAction(sequenceName).then(()=>{
-                fg.createAction(sequenceName,wrappedFunc).then(()=>{
-                    res.json({ mex: wrappedFunc });
-                }).catch(()=>{
-                    res.json({ mex: "An error occurred while creating new action" });
-                })    
-            }).catch(()=>{
-                res.json({ mex: "An error occurred while deleting old sequence action" });
-            });
-
-        });
-    });
-});
-*/
 
 app.post("/api/v1/action/mergeV3", async (req, res) => {
     
@@ -161,7 +94,7 @@ app.post("/api/v1/action/mergeV3", async (req, res) => {
                     }).catch(()=>{
                         res.json({ mex: "An error occurred while creating new action" });
                     })    
-                }).catch(()=>{
+                }).catch((err)=>{
                     res.json({ mex: "An error occurred while deleting old sequence action" });
                 });
             }else{
@@ -176,6 +109,117 @@ app.post("/api/v1/action/mergeV3", async (req, res) => {
                 }).catch(()=>{
                     res.json({ mex: "An error occurred while deleting old sequence action" });
                 });
+
+            }
+        });
+    }).catch(err => {
+        logger.log("An error occurred there's no sequence : " +sequenceName,"WARN")
+        res.json("An error occurred while getting sequence "+sequenceName);
+    });
+});
+
+app.post("/api/v1/action/mergeV4",(req,res)=>{
+
+    logger.log("/api/v1/action/mergeV3","info");
+    var funcs = [];
+    const sequenceName = req.body.name;
+
+    /*
+        effettuo il controllo:
+            se la somma dei wait time delle funzioni che compongono la sequence è > della duration delle funzioni stesse
+            devo fare il merge
+    
+    fg.invokeActionWithParams().then((result)=>{
+        const duration = result.duration;
+        const waitTime = result.waitTime;
+
+
+    })*/
+
+    fg.getAction(sequenceName).then((result) => {
+        var promises = [];
+        
+        if (Object.keys(result).includes("error")) {
+            logger.log("Error getting sequence: " + sequenceName,"warn");
+            logger.log(JSON.stringify(result),"warn");
+            res.json(result);
+            return;
+        };
+
+        result.exec.components.forEach(funcName => {
+            var tmp = funcName.split('/');
+            promises.push(
+                
+                fg.getAction(tmp[tmp.length -1])
+                    .then((result) => {
+                        const timestamp = Date.now();
+                        var parsed = parseFunction(result,timestamp);
+                        if(parsed.binary){
+                            zipgest.cleanDirs(timestamp);
+                        }
+                        return parsed;
+
+                    }).catch((error) => {
+                        logger.log(error,"error");
+                    })
+            );
+        });
+
+        Promise.all(promises).then((result) =>
+            funcs = result
+        ).then(() => {
+
+            if(funcs.length < 2)
+                res.json({ mex: "An error occurred parsing functions" });
+            console.log(funcs);
+            var counter = 0;
+            const prevKind = funcs[0].kind;
+            for (let index = 1; index < funcs.length; index++) {
+                if(funcs[index].kind === prevKind) {
+                    counter++;
+                }
+            }
+            console.log(counter);
+            if(counter == funcs.length -1){
+
+                // le functions hanno tutte le stessa Kind (linguaggio) posso fonderle come plain text
+
+                utils.mergeFuncs(funcs, sequenceName,function(wrappedFunc){
+
+                    fg.deleteActionCB(sequenceName,function(){
+                        fg.createAction(sequenceName,wrappedFunc,prevKind).then(()=>{
+                            console.log(wrappedFunc)
+                            res.json(wrappedFunc);
+                        }).catch(()=>{
+                            res.json({ mex: "An error occurred while creating new action" });
+                        })   
+                    });
+                });
+                
+                
+                /*
+                    BISOGNA INVOCARE LA SEQUENZA APPENA FATTA E PRENDERNE LE METRICHE PER VEDERE SE IL MERGE È STATO EFFICACE
+                    SE SI POSSO CREARE LA NUOVA FUNZIONE
+                */
+
+            }else{
+                // le functions non hanno tutte le stessa Kind (linguaggio) devo fonderle come binary ( zip file )
+                var folder = utils.mergeFuncsBinary(funcs, sequenceName);
+
+                fg.deleteActionCB(sequenceName,function(){
+                    fg.createAction(sequenceName,folder,"binary").then(()=>{
+                        res.json(wrappedFunc);
+                    }).catch(()=>{
+                        res.json({ mex: "An error occurred while creating new action" });
+                    })    
+                }).catch(()=>{
+                    res.json({ mex: "An error occurred while deleting old sequence action" });
+                });
+
+                /*
+                    BISOGNA INVOCARE LA SEQUENZA APPENA FATTA E PRENDERNE LE METRICHE PER VEDERE SE IL MERGE È STATO EFFICACE
+                    SE SI POSSO CREARE LA NUOVA FUNZIONE
+                */
 
             }
         });
@@ -252,6 +296,7 @@ app.post("/api/v1/action/invoke-with-params", (req, res) => {
             body: JSON.stringify(req.body.params)
             }).catch(err => {
                 logger.log("An error occurred while invoking action: "+req.body.name,"WARN");
+                logger.log(err,"WARN");
                 res.json("An error occurred while invoking action: "+req.body.name);
             });
             const content = await rawResponse.json();
@@ -357,6 +402,7 @@ function parseFunction(element,timestamp){
     logger.log("Parsing function","info");
 
     if (element.exec.binary) {
+        logger.log("Binary function","info");
 
         //let buff = new Buffer.alloc(element.exec.code.length,element.exec.code, 'base64');
         let buff = new Buffer(element.exec.code, 'base64');
@@ -372,37 +418,38 @@ function parseFunction(element,timestamp){
             "code": func.substring(func.indexOf("function"), func.indexOf("function") + 9).concat(" " + element.name).concat(func.substring(func.indexOf("("))),
             "invocation": element.name + "(",
             "param": func.substring(func.indexOf("(") + 1, func.indexOf(")")),
-            "binary": element.exec.binary,
-            "kind": ""
+            "binary": true,
+            "kind": "binary"
         }
-        tmp.kind = utils.detectLangSimple(tmp.code);
         return tmp;          
     }
     else {
-        var kind = utils.detectLangSimple(element.exec.code)
-        if(kind == "nodejs"){
+        logger.log("Not binary function","info");
+
+        var kind = utils.detectLangSimple(element.exec.code);
+        if(kind.includes("nodejs")){
             var func = element.exec.code;
             var tmp = {
                 "name": element.name, //string
                 "code": func.substring(func.indexOf("function"), func.indexOf("function") + 9).concat(" " + element.name).concat(func.substring(func.indexOf("("))),
                 "invocation": element.name + "(",
                 "param": func.substring(func.indexOf("(") + 1, func.indexOf(")")),
-                "binary": element.exec.binary,
-                "kind": utils.detectLangSimple(func)
+                "binary": false,
+                "kind": kind
             }
 
             return tmp;
         }
 
-        if(kind == "python"){
+        if(kind.includes("python")){
             var func = element.exec.code;
             var tmp = {
                 "name": element.name, //string
                 "code": func.substring(func.indexOf("def"), func.indexOf("def") + 3).concat(" " + element.name).concat(func.substring(func.indexOf("("))),
                 "invocation": element.name + "(",
                 "param": func.substring(func.indexOf("(") + 1, func.indexOf(")")),
-                "binary": element.exec.binary,
-                "kind": utils.detectLangSimple(func)
+                "binary": false,
+                "kind": kind
             }
 
             return tmp;

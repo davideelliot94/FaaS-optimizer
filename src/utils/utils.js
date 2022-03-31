@@ -2,14 +2,16 @@ import * as logger from "./logger.cjs";
 import * as fs from 'fs';
 import path from "path";
 import os from 'os';
+import * as conf from '../../config/conf.cjs';
+
 
 const __dirname = path.resolve();
 
-function mergeFuncs(funcs,seqName){
+function mergeFuncs(funcs,seqName,callback){
 
     const kind = funcs[0].kind;
 
-    if(kind == "nodejs"){
+    if(kind.includes("nodejs")){
         logger.log("Merging nodejs actions","info");
         var param = funcs[0].param;
         var wrappedFunc = "function main("+param+") {";
@@ -27,38 +29,37 @@ function mergeFuncs(funcs,seqName){
             }
             
         });
-        wrappedFunc = wrappedFunc.concat("}");
+        wrappedFunc = wrappedFunc.concat("}").concat(os.EOL);
 
-        return wrappedFunc;
+        callback(wrappedFunc);
     }
 
-    if(kind == "python"){
+    if(kind.includes("python")){
 
         logger.log("Merging python actions","info");
         var param = funcs[0].param;
         var wrappedFunc = "def main("+param+"):";
 
         funcs.forEach(f => {
-            wrappedFunc = wrappedFunc.concat(f.code);
+            //wrappedFunc = wrappedFunc.concat("\n\t").concat(f.code);
+            wrappedFunc = wrappedFunc.concat("\n");
             var codeArray = f.code.split(os.EOL);
-            codeArray.forEach((line,j) => {
-                if(j == 0){
-                    wrappedFunc.concat("\t").concat(line).concat("\n");
-                }
-                wrappedFunc.concat("\t\t").concat(line).concat("\n");
-                
-            });
+            codeArray.forEach(line => {
+                wrappedFunc = wrappedFunc.concat("\t").concat(line).concat("\n");
+            });            
         });
 
+        
         funcs.forEach((f,i) => {
             if(i == funcs.length -1){
-                wrappedFunc = wrappedFunc.concat("\treturn ").concat(f.invocation).concat(param+")");
+                wrappedFunc = wrappedFunc.concat("\n\treturn ").concat(f.invocation).concat(param+")");
             }
             else{
                 wrappedFunc = wrappedFunc.concat("\t").concat(f.name+"Res = ").concat(f.invocation).concat(param+")");
                 param = f.name+"Res";
             }
         });
+        callback(wrappedFunc);
     }
 
     
@@ -125,13 +126,40 @@ function mergeFuncsBinary(funcs,seqName){
 }
 
 function detectLangSimple(snippet){
+    let tmpKind;
     if(snippet.includes("function ")){
-        return "nodejs";
+        tmpKind = "nodejs";
     }
     if(snippet.includes("def ")){
-        return "python";
+        tmpKind = "python";
     }
+
+    var suppKinds = [];
+    conf.kinds.forEach(kind => {
+        if(kind.includes(tmpKind)){
+            suppKinds.push(kind);
+        }
+    });
+
+    if(suppKinds.length <= 1){
+        return suppKinds[0];
+    }else{
+        var max = 0;
+        var realKind;
+        suppKinds.forEach(k =>{
+            const vers = k.split(":")[1];
+            if(vers> max) {
+                max = vers;
+                realKind = k
+            }
+        });
+        return realKind;
+    }
+
+    
 }
+
+
 
 
 export {mergeFuncs,mergeFuncsBinary,detectLangSimple};
