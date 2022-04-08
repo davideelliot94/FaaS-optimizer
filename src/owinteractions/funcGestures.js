@@ -3,7 +3,6 @@ import * as fs from 'fs';
 import path, { resolve } from "path";
 import * as logger from "../utils/logger.cjs";
 import fetch from 'node-fetch';
-import { errorMonitor } from 'events';
 const httpsAgent = conf.httpsAgent;
 
 const __dirname = path.resolve();
@@ -74,25 +73,33 @@ function invokeActionWithParams(funcName,params) {
 async function createAction(funcName,funcBody,fkind){
     if(fkind == "binary"){
 
-        const fullPath = path.join(__dirname,"../utils/binaries/")+funcBody;
-
-        (async () => {
-            const rawResponse = await fetch('https://'+conf.API_HOST+'/api/v1/namespaces/_/actions/'+funcName+'?overwrite=true', {
-              method: 'PUT',
-              headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-                'Authorization':'Basic '+ btoa(conf.API_KEY)
-              },
-              agent: httpsAgent,
-              body: JSON.stringify({"namespace":"_","name":funcName,"exec":{"kind":fkind,"code":fullPath},"annotations":[{"key":"web-export","value":true},{"key":"raw-http","value":false},{"key":"final","value":true}]})
-            });
-            const content = await rawResponse.json();
-            
-            logger.log("/api/v1/action/create "+ JSON.stringify(content),"info");
-            return content;
-            
-          })()
+        const fullPath = path.join(__dirname,"../../binaries/")+funcBody+"/"+funcBody+".zip";
+        console.log(fullPath)
+        try {
+            (async () => {
+                const rawResponse = await fetch('https://'+conf.API_HOST+'/api/v1/namespaces/_/actions/'+funcName+'?overwrite=true', {
+                  method: 'PUT',
+                  headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'Authorization':'Basic '+ btoa(conf.API_KEY)
+                  },
+                  agent: httpsAgent,
+                  //body: JSON.stringify({"namespace":"_","name":funcName,"exec":{"kind":fkind,"code":fullPath},"annotations":[{"key":"web-export","value":true},{"key":"raw-http","value":false},{"key":"final","value":true}]})
+                  body: JSON.stringify({"namespace":"_","name":funcName,"exec":{"kind":"nodejs:default","code":fullPath,"binary":"true"},"annotations":[{"key":"web-export","value":true},{"key":"raw-http","value":false},{"key":"final","value":true}]})
+                }).catch(err =>{
+                    logger.log(err,"warn");
+                });
+                const content = await rawResponse.json();
+                
+                logger.log("/api/v1/action/create "+ JSON.stringify(content),"info");
+                return content;
+                
+              })()
+        } catch (error) {
+            logger.log(err,"error");
+        }
+        
     }
     else{
         (async () => {
@@ -248,4 +255,49 @@ function parseFunction(element,timestamp){
     }
 }*/
 
-export {invokeAction,getAction,deleteAction,createAction,invokeActionWithParams,deleteActionCB};
+async function createActionBinaryTest(funcName,funcBody,fkind){
+    if(fkind.includes("binary")){
+
+        const fullPath = path.join(__dirname,"../utils/binaries/")+funcBody;
+
+        (async () => {
+            const rawResponse = await fetch('https://'+conf.API_HOST+'/api/v1/namespaces/_/actions/'+funcName+'?overwrite=true', {
+              method: 'PUT',
+              headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'Authorization':'Basic '+ btoa(conf.API_KEY)
+              },
+              agent: httpsAgent,
+              body: JSON.stringify({"namespace":"_","name":funcName,"exec":{"kind":fkind,"code":fullPath},"annotations":[{"key":"web-export","value":true},{"key":"raw-http","value":false},{"key":"final","value":true}]})
+            });
+            const content = await rawResponse.json();
+            
+            logger.log("/api/v1/action/create "+ JSON.stringify(content),"info");
+            return content;
+            
+          })()
+    }
+    else{
+        (async () => {
+            const rawResponse = await fetch('https://'+conf.API_HOST+'/api/v1/namespaces/_/actions/'+funcName+'?overwrite=true', {
+              method: 'PUT',
+              headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'Authorization':'Basic '+ btoa(conf.API_KEY)
+              },
+              agent: httpsAgent,
+              body: JSON.stringify({"namespace":"_","name":funcName,"exec":{"kind":fkind,"code":funcBody},"annotations":[{"key":"web-export","value":true},{"key":"raw-http","value":false},{"key":"final","value":true}]})
+            });
+            const content = await rawResponse.json();
+            
+            logger.log("/api/v1/action/create "+ JSON.stringify(content),"info");
+            return content;
+            
+          })()
+    }
+    
+}
+
+export {invokeAction,getAction,deleteAction,createAction,invokeActionWithParams,deleteActionCB,createActionBinaryTest};

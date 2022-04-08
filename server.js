@@ -4,11 +4,7 @@ import * as logger from "./src/utils/logger.cjs";
 
 
 app.listen(conf.PORT,()=>{
-        logger.log("Listening on port "+ conf.PORT,"info");
+    logger.log("Running on "+ conf.AMBIENT,"info");
+    logger.log("HOST: "+conf.API_HOST,"info")
+    logger.log("Listening on port "+ conf.PORT,"info");
 });
-
-
-
-
-
-

@@ -1,0 +1,1 @@
+{"name":"prova","version":"1.0.0","description":"An action written as an npm package.","main":"index.js","author":"FaaS-Optimizer","license":"Apache-2.0","dependencies":{"child_process":"latest"}}

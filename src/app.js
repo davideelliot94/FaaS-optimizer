@@ -7,20 +7,20 @@ import * as logger from "./utils/logger.cjs";
 import express from 'express';
 import fetch from 'node-fetch';
 import * as conf from '../config/conf.cjs';
-import * as https from 'https';
 const app = express();
 app.use(express.json());
 
 const httpsAgent = conf.httpsAgent;
 
 
+
 app.get("/",(req,res)=>{
     res.json({"mex":"Service up and running!"});
 });
 
-app.post("/api/v1/action/mergeV3", async (req, res) => {
-    
-    logger.log("/api/v1/action/mergeV3","info");
+app.post("/api/v1/action/mergeV4",(req,res)=>{
+
+    logger.log("/api/v1/action/mergeV4","info");
     var funcs = [];
     const sequenceName = req.body.name;
 
@@ -32,8 +32,6 @@ app.post("/api/v1/action/mergeV3", async (req, res) => {
     fg.invokeActionWithParams().then((result)=>{
         const duration = result.duration;
         const waitTime = result.waitTime;
-
-
     })*/
 
     fg.getAction(sequenceName).then((result) => {
@@ -68,39 +66,54 @@ app.post("/api/v1/action/mergeV3", async (req, res) => {
         Promise.all(promises).then((result) =>
             funcs = result
         ).then(() => {
+
             if(funcs.length < 2)
                 res.json({ mex: "An error occurred parsing functions" });
-   
+
             var counter = 0;
             const prevKind = funcs[0].kind;
-
             for (let index = 1; index < funcs.length; index++) {
                 if(funcs[index].kind === prevKind) {
                     counter++;
                 }
             }
+
             if(counter == funcs.length -1){
 
                 // le functions hanno tutte le stessa Kind (linguaggio) posso fonderle come plain text
 
-                var wrappedFunc = utils.mergeFuncs(funcs, sequenceName);
-                /*
-                    BISOGNA INVOCARE LA SEQUENZA APPENA FATTA E PRENDERNE LE METRICHE PER VEDERE SE IL MERGE È STATO EFFICACE
-                    SE SI POSSO CREARE LA NUOVA FUNZIONE
-                */
-                fg.deleteAction(sequenceName).then(()=>{
-                    fg.createAction(sequenceName,wrappedFunc,prevKind).then(()=>{
+                utils.mergeFuncs(funcs, sequenceName,function(wrappedFunc){
+
+                    fg.deleteActionCB(sequenceName,function(){
+                        fg.createAction(sequenceName,wrappedFunc,prevKind).then(()=>{
+                            console.log(wrappedFunc)
+                            res.json(wrappedFunc);
+                        }).catch(()=>{
+                            res.json({ mex: "An error occurred while creating new action" });
+                        })   
+                    });
+                });
+                
+            }else{
+                // le functions non hanno tutte le stessa Kind (linguaggio) devo fonderle come binary ( zip file )
+
+                /**
+                 * AL MOMENTO MI SEMBRA IMPOSSIBILE DA REALIZZARE, DOVREI PENSARCI MEGLIO
+                 */
+                utils.mergeFuncsBinary(funcs, sequenceName,function(timestamp_folder){
+                    zipgest.zipDirLocal(timestamp_folder);
+
+                    
+                    fg.createAction("prova",timestamp_folder,"binary").then(()=>{
                         res.json(wrappedFunc);
                     }).catch(()=>{
                         res.json({ mex: "An error occurred while creating new action" });
                     })    
-                }).catch((err)=>{
-                    res.json({ mex: "An error occurred while deleting old sequence action" });
+                    
                 });
-            }else{
-                // le functions non hanno tutte le stessa Kind (linguaggio) devo fonderle come binary ( zip file )
-                var folder = utils.mergeFuncsBinary(funcs, sequenceName);
-                fg.deleteAction(sequenceName).then(()=>{
+                
+                /*
+                fg.deleteActionCB(sequenceName,function(){
                     fg.createAction(sequenceName,folder,"binary").then(()=>{
                         res.json(wrappedFunc);
                     }).catch(()=>{
@@ -108,8 +121,7 @@ app.post("/api/v1/action/mergeV3", async (req, res) => {
                     })    
                 }).catch(()=>{
                     res.json({ mex: "An error occurred while deleting old sequence action" });
-                });
-
+                });*/
             }
         });
     }).catch(err => {
@@ -118,23 +130,28 @@ app.post("/api/v1/action/mergeV3", async (req, res) => {
     });
 });
 
-app.post("/api/v1/action/mergeV4",(req,res)=>{
+app.post("/api/v1/action/merge",(req,res)=>{
 
-    logger.log("/api/v1/action/mergeV3","info");
+    logger.log("/api/v1/action/merge-w-metrics","info");
     var funcs = [];
     const sequenceName = req.body.name;
+    const sequenceParams = req.body.params;
 
     /*
         effettuo il controllo:
             se la somma dei wait time delle funzioni che compongono la sequence è > della duration delle funzioni stesse
             devo fare il merge
-    
-    fg.invokeActionWithParams().then((result)=>{
-        const duration = result.duration;
-        const waitTime = result.waitTime;
+    */
 
+    const seqMeasures = {"waitTime":"","initTime":"","duration":""};
 
-    })*/
+    fg.invokeActionWithParams(sequenceName,sequenceParams).then((result)=>{
+        seqMeasures.waitTime = result.annotation[1].value;
+        seqMeasures.initTime = result.annotation[6].value;
+        seqMeasures.duration = result.duration;
+
+        
+    });
 
     fg.getAction(sequenceName).then((result) => {
         var promises = [];
@@ -171,7 +188,13 @@ app.post("/api/v1/action/mergeV4",(req,res)=>{
 
             if(funcs.length < 2)
                 res.json({ mex: "An error occurred parsing functions" });
-            console.log(funcs);
+
+            /**
+             * CALCOLO METRICHE SINGOLE FUNZIONI
+             */
+
+            const funcMeasures = getFuncMetrics(funcs);
+
             var counter = 0;
             const prevKind = funcs[0].kind;
             for (let index = 1; index < funcs.length; index++) {
@@ -179,7 +202,7 @@ app.post("/api/v1/action/mergeV4",(req,res)=>{
                     counter++;
                 }
             }
-            console.log(counter);
+
             if(counter == funcs.length -1){
 
                 // le functions hanno tutte le stessa Kind (linguaggio) posso fonderle come plain text
@@ -201,11 +224,27 @@ app.post("/api/v1/action/mergeV4",(req,res)=>{
                     BISOGNA INVOCARE LA SEQUENZA APPENA FATTA E PRENDERNE LE METRICHE PER VEDERE SE IL MERGE È STATO EFFICACE
                     SE SI POSSO CREARE LA NUOVA FUNZIONE
                 */
-
+                
             }else{
-                // le functions non hanno tutte le stessa Kind (linguaggio) devo fonderle come binary ( zip file )
-                var folder = utils.mergeFuncsBinary(funcs, sequenceName);
 
+                logger.log("The sequence provided contains actions using different languages, merge not possible","info");
+                res.json("The sequence provided contains actions using different languages, merge not possible","info")
+                // le functions non hanno tutte le stessa Kind (linguaggio) devo fonderle come binary ( zip file )
+
+                /*
+                utils.mergeFuncsBinary(funcs, sequenceName,function(timestamp_folder){
+                    zipgest.zipDirLocal(timestamp_folder);
+
+                    
+                    fg.createAction("prova",timestamp_folder,"binary").then(()=>{
+                        res.json(wrappedFunc);
+                    }).catch(()=>{
+                        res.json({ mex: "An error occurred while creating new action" });
+                    })    
+                    
+                });
+                
+                
                 fg.deleteActionCB(sequenceName,function(){
                     fg.createAction(sequenceName,folder,"binary").then(()=>{
                         res.json(wrappedFunc);
@@ -214,7 +253,7 @@ app.post("/api/v1/action/mergeV4",(req,res)=>{
                     })    
                 }).catch(()=>{
                     res.json({ mex: "An error occurred while deleting old sequence action" });
-                });
+                });*/
 
                 /*
                     BISOGNA INVOCARE LA SEQUENZA APPENA FATTA E PRENDERNE LE METRICHE PER VEDERE SE IL MERGE È STATO EFFICACE
@@ -363,8 +402,6 @@ app.post("/api/v1/action/delete", (req, res) => {
         logger.log("An error occurred while deleting action: "+req.body.name,"error")
         res.json(error);
     }
-    
-
 });
 
 app.post("/api/v1/action/create", (req, res) => {
@@ -457,34 +494,52 @@ function parseFunction(element,timestamp){
     }
 }
 
+function getFuncMetrics(functions,callback){
+    var promises = [];
+
+    functions.forEach((elem)=>{
+        const params =  "";
+        promises.push(
+        
+            fg.invokeActionWithParams(elem.name,params)
+        );
+    });
+/*
+    Promise.all(promises).then((result) =>
+        result;
+    )*/
+}
+
 app.post("/api/v1/metrics/get", (req, res) => {
-    /*
     
-    curl owdev-nginx.openwhisk.svc.cluster.local/api/v1/labels
-    
-    
-    
-        logger.log("/api/v1/action/delete","info");
+        logger.log("/api/v1/metrics/get","info");
+        console.log(conf.API_HOST)
         try {
-            fetch('https://'+conf.API_HOST+'/api/v1/namespaces/_/actions/'+req.body.name,{
-            method: 'DELETE',
+            fetch('https://'+conf.METRICS_ENDPOINT+'query=rate(openwhisk_action_duration_seconds_count{action="'+req.body.name+'"}[1d])',{
+            method: 'GET',
             headers: {
                 'Authorization':'Basic '+ btoa(conf.API_KEY)
             },
             agent: httpsAgent
           })
-            .then(response => response.json())
+            .then(response => {console.log(response) ;response.json()})
             .then(data => {
-                res.json(data);
-                logger.log("/api/v1/action/delete " + data,"info")
+                
+                const duration_seconds_count = data.data.result != undefined ? data.data.result[0].value[1]:data.error;
+                logger.log("/api/v1/metrics/get" + data,"info")
+                res.json(duration_seconds_count);
+                
             }).catch(err =>{
-                logger.log("An error occurred while deleting action: "+req.body.name,"WARN")
-                res.json("An error occurred while deleting action: "+req.body.name);
+                logger.log("An error occurred while retrieving metrics for action: "+req.body.name,"WARN")
+                logger.log(err,"WARN");
+
+                res.json(err);
             });
         } catch (error) {
-            logger.log("An error occurred while deleting action: "+req.body.name,"error")
+            logger.log("An error occurred while retrieving metrics for action: "+req.body.name,"error")
+            logger.log(error,"error");
             res.json(error);
-        }*/
+        }
         
 });
 

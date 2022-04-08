@@ -1,6 +1,8 @@
 const fs = require('fs');
 const path = require("path");
 var AdmZip = require('adm-zip');
+const child_process = require("child_process");
+
 
 function extractZipLocal (timestamp) {
 
@@ -12,8 +14,10 @@ function extractZipLocal (timestamp) {
 }
 
 function zipDirLocal(timestamp){
-  var file = new AdmZip(path.join(__dirname, '../../src')+"/utils/binaries/"+timestamp+".zip");
-  file.addLocalFolder(path.join(__dirname, '../../src')+"/utils/binaries/"+timestamp);
+
+    child_process.execSync('zip -r '+ timestamp+'  *', {
+      cwd: path.join(__dirname, '../../')+"binaries/"+timestamp
+    });
 }
 
 function cleanDirs(subdir){

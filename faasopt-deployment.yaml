@@ -17,5 +17,10 @@ spec:
       containers:
       - name: faas-optimizer
         image: davideelliot/faas-optimizer:0.1
+        env:
+        - name: API_HOST
+          value: "owdev-nginx.openwhisk.svc.cluster.local"
+        - name: METRICS_ENDPOINT
+          value: "owdev-prometheus-server.openwhisk.svc.cluster.local:9090/api/v1/query?"
         ports:
         - containerPort: 4000
