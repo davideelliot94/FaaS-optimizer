@@ -494,53 +494,48 @@ function parseFunction(element,timestamp){
     }
 }
 
-function getFuncMetrics(functions,callback){
-    var promises = [];
-
-    functions.forEach((elem)=>{
-        const params =  "";
-        promises.push(
-        
-            fg.invokeActionWithParams(elem.name,params)
-        );
-    });
-/*
-    Promise.all(promises).then((result) =>
-        result;
-    )*/
-}
-
 app.post("/api/v1/metrics/get", (req, res) => {
     
-        logger.log("/api/v1/metrics/get","info");
-        console.log(conf.API_HOST)
-        try {
-            fetch('https://'+conf.METRICS_ENDPOINT+'query=rate(openwhisk_action_duration_seconds_count{action="'+req.body.name+'"}[1d])',{
-            method: 'GET',
-            headers: {
-                'Authorization':'Basic '+ btoa(conf.API_KEY)
-            },
-            agent: httpsAgent
-          })
-            .then(response => {console.log(response) ;response.json()})
-            .then(data => {
-                
-                const duration_seconds_count = data.data.result != undefined ? data.data.result[0].value[1]:data.error;
-                logger.log("/api/v1/metrics/get" + data,"info")
-                res.json(duration_seconds_count);
-                
-            }).catch(err =>{
-                logger.log("An error occurred while retrieving metrics for action: "+req.body.name,"WARN")
-                logger.log(err,"WARN");
+    var response = {"duration":"","waitTime":""};
+    var metrics = ["openwhisk_action_duration_seconds_sum","openwhisk_action_duration_seconds_count","openwhisk_action_waitTime_seconds_sum","openwhisk_action_waitTime_seconds_count"]
+    var metrics_collect= [];
+    logger.log("/api/v1/metrics/get","info");
 
-                res.json(err);
-            });
-        } catch (error) {
-            logger.log("An error occurred while retrieving metrics for action: "+req.body.name,"error")
-            logger.log(error,"error");
-            res.json(error);
-        }
+    var promises = [];
         
+    metrics.forEach(metric => {
+        promises.push(
+            
+                fetch('http://'+conf.METRICS_ENDPOINT+'query=rate('+metric+'{action="'+req.body.name+'"}[1d])',{
+                method: 'GET',
+                headers: {
+                    'Authorization':'Basic '+ btoa(conf.API_KEY)
+                },
+                agent: httpsAgent
+                })
+                .then(response => {response.json()})
+                .then(res => {
+                    
+                    if(Object.keys(res).includes("data")){
+                        
+                        return data.data.result[0].value[1]
+                    }
+                }).catch(err =>{
+                    logger.log("An error occurred while retrieving metrics for action: "+req.body.name,"WARN")
+                    logger.log(err,"WARN");
+                })
+            
+        );
+    });
+
+        Promise.all(promises).then((result) =>
+            metrics_collect = result
+        ).then(() => {
+            
+            response.duration = Math.max(metrics_collect.slice(0,2)) > 0 ? Math.max(metrics_collect.slice(0,2)):0;
+            response.waitTime = Math.max(metrics_collect.slice(2,4)) > 0 ? Math.max(metrics_collect.slice(2,4)):0;
+            res.json(response);
+        });   
 });
 
 export default app;
