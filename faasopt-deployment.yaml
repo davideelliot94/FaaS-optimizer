@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: faas-optimizer
-        image: davideelliot/faas-optimizer:0.1
+        image: davideelliot/faas-optimizer:0.5
         env:
         - name: API_HOST
           value: "owdev-nginx.openwhisk.svc.cluster.local"

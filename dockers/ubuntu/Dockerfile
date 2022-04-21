@@ -1,11 +1,15 @@
 FROM ubuntu
 
 RUN apt-get update
-RUN apt install -y nodejs
+#RUN apt install -y nodejs:latest
 RUN apt install npm -y
+RUN npm cache clean -f
+RUN npm install -g n
+RUN n stable
 RUN npm install -g npm@latest
 
-ENV API_HOST="owdev-apigateway.openwhisk.svc.cluster.local"
+ENV API_HOST=""
+ENV METRICS_ENDPOINT=""
 ENV AMBIENT=""
 
 COPY . /faasopt

@@ -1,4 +1,4 @@
-import * as logger from "./logger.cjs";
+import * as logger from "../log/logger.cjs";
 import * as fs from 'fs';
 import path from "path";
 import os from 'os';
@@ -8,7 +8,26 @@ import child_process from "child_process";
 
 const __dirname = path.resolve();
 
-function mergeFuncs(funcs,seqName,callback){
+function mergeFuncsWithMetrics(funcs_metrics,seqName,is_binary,callback){
+    var funcs = [];
+    funcs_metrics.forEach(fm=>{
+        if(fm.to_merge) funcs.push(fm.func);
+    });
+
+    if(is_binary){
+        mergeFuncsBinary(funcs,seqName,function(result){
+            callback(result);
+        }) 
+    }else{
+        mergeFuncs(funcs,function(result){
+            callback(result);
+        })
+    }
+
+    
+}
+
+function mergeFuncs(funcs,callback){
 
     const kind = funcs[0].kind;
 
@@ -74,17 +93,13 @@ function mergeFuncsBinary(funcs,seqName,callback){
     const timestamp = Date.now();
     
 
-    const import_spawn = "var spawn= require('child_process').spawn;\n"
-    const spawn_proc =  ["const process = spawn(",  // inserire il linguaggio "kind"
-                        ", [./",  // inserire il nome dello script
-                        ",", // inserires JSON.stringigy(args)
-                        "]);\n"];
+    const import_spawn = "const {execSync} = require('child_process');\n"
 
-    const promise_spawn = "return new Promise((resolve, reject) =>{\n            process.stdout.on(\"data\", data =>{\n                resolve(data.toString());\n            })\n            process.stderr.on(\"data\", reject)\n        });\n"
 
 
     var param = funcs[0].param;
-    fs.mkdirSync(__dirname + "/binaries/" + timestamp, { recursive: true });
+    const binaries = path.join(__dirname,"src/utils/binaries/");
+    fs.mkdirSync(binaries+ timestamp, { recursive: true });
     
     //vanno assolutamente modificate per essere estensibili
    
@@ -97,14 +112,18 @@ function mergeFuncsBinary(funcs,seqName,callback){
             wrappedFunc = wrappedFunc.concat("function "+f.invocation+f.param+"){\n\n");
             // qua va la roba per il python script e la modifica del python script
             if(f.kind.includes("python")){
-                const fileName = "/"+f.kind.split(":")[0]+Date.now()+".py";
-                wrappedFunc = wrappedFunc.concat(spawn_proc[0]).concat(f.kind).concat(spawn_proc[1]).concat(fileName).concat(spawn_proc[2]).concat(JSON.stringigy(args)).concat(spawn_proc[3]).concat(";\n");
-                wrappedFunc = wrappedFunc.concat(promise_spawn);
-                wrappedFunc = wrappedFunc.concat("}\n");
-
+                const fileName = f.kind.split(":")[0]+Date.now()+".py";
+                wrappedFunc = wrappedFunc.concat("execSync('apt-get install python3');\n");
+                wrappedFunc = wrappedFunc.concat("return JSON.parse(execSync(\"python3 "+fileName+" '\"+JSON.stringify("+f.param+")+\"'\").toString().replace(/'/g,'\"'));\n}\n")
+                
                 var codeArray = f.code.split(os.EOL);
                 var newcode = "";
+                let linecount = 0;
                 codeArray.forEach(line => {
+                    if(linecount == 0){
+                        newcode = "import sys\nimport json\n";
+                        linecount++;
+                    }
                     if(line.includes("print(")){
                         newcode = newcode.concat("#").concat(line).concat("\n");
                     }
@@ -112,15 +131,17 @@ function mergeFuncsBinary(funcs,seqName,callback){
                         if(line.includes("return")){
                             line = line.replace("return ","print(");
                             newcode = newcode.concat(line).concat(")");
+                            newcode = newcode.concat("\n").concat(f.invocation).concat("json.loads(sys.argv[1]))\n") // dovrei vedere la funzione come si chiama
                         }else{
                             newcode = newcode.concat(line).concat("\n");
                         }
                     }
+                    
                 });  
 
-                
-                let buff = new Buffer(newcode, 'utf8');
-                fs.writeFileSync(__dirname + "/binaries/" + timestamp + fileName, buff,{encoding: "utf8"});
+                let buff = Buffer.from(newcode, 'utf8');
+
+                fs.writeFileSync(binaries + timestamp +"/"+ fileName, buff,{encoding: "utf8"});
             }
 
         }else{
@@ -131,27 +152,22 @@ function mergeFuncsBinary(funcs,seqName,callback){
 
     funcs.forEach((f,i) => {
         if(i == funcs.length -1){
-            if(!f.kind.includes("nodejs")){
-                wrappedFunc = wrappedFunc.concat(f.invocation).concat(param+")").concat(".then((result) =>{return result});\n")
-            }else{
-                wrappedFunc = wrappedFunc.concat("return ").concat(f.invocation).concat(param+");\n");
-            }
+            
+            wrappedFunc = wrappedFunc.concat("return ").concat(f.invocation).concat(param+");\n");
+            
         }
         else{
-            if(!f.kind.includes("nodejs")){
-                wrappedFunc = wrappedFunc.concat(f.invocation).concat(param+")").concat(".then((result)=>{")
-            }else{
-                wrappedFunc = wrappedFunc.concat("var "+f.name+"Res = ").concat(f.invocation).concat(param+");\n");
-                param = f.name+"Res";
-            }
+ 
+            wrappedFunc = wrappedFunc.concat("var "+f.name+"Res = ").concat(f.invocation).concat(param+");\n");
+            param = f.name+"Res";
+            
         }
     });
-    wrappedFunc = wrappedFunc.concat("}");
+    wrappedFunc = wrappedFunc.concat("}").concat("exports.main = main;\n");
 
-
-    let buff = new Buffer(wrappedFunc, 'utf8');
+    let buff = Buffer.from(wrappedFunc, 'utf8');
     var pjraw = {
-        "name": "prova",
+        "name": seqName,
         "version": "1.0.0",
         "description": "An action written as an npm package.",
         "main": "index.js",
@@ -161,11 +177,10 @@ function mergeFuncsBinary(funcs,seqName,callback){
           "child_process": "latest"
         }
     };
-    let pj = new Buffer(JSON.stringify(pjraw),"utf8");
-    fs.writeFileSync(__dirname + "/binaries/" + timestamp + '/package.json', pj,{encoding: "utf8"});
-    fs.writeFileSync(__dirname + "/binaries/" + timestamp + '/index.js', buff,{encoding: "utf8"});
-    child_process.execSync('npm install');
-
+    let pj = Buffer.from(JSON.stringify(pjraw),"utf8");
+    
+    fs.writeFileSync(binaries+ timestamp + '/package.json', pj,{encoding: "utf8"});
+    fs.writeFileSync(binaries+ timestamp + '/index.js', buff,{encoding: "utf8"});
 
     callback(timestamp);
 }
@@ -199,12 +214,60 @@ function detectLangSimple(snippet){
             }
         });
         return realKind;
-    }
+    }   
+}
 
-    
+function getMainFileBinary(timestamp){
+
+    const fullPath = path.join(__dirname,"src/utils/zip_workdir/extracted/"+timestamp+"/");
+
+    var ls = child_process.execSync("ls "+fullPath).toString();
+    var lsSplit = ls.split("\n");
+    var func = "";
+    lsSplit.forEach(elem =>{
+        if(elem.includes(".js")){
+            func = child_process.execSync("cat "+fullPath+"/*.js");
+            
+        }
+        if(elem.includes(".py")){
+            func = child_process.execSync("cat "+fullPath+"/*.py");
+
+        }
+
+    })
+
+    return func.toString();
 }
 
 
+function checkToMerge(funcs_metrics,callback){
+    var to_merge = false;
 
+    funcs_metrics.forEach(f =>{
+        if(f.duration < f.waitTime + f.initTime){
+            funcs_metrics.to_merge = true;
+        }
+    })
 
-export {mergeFuncs,mergeFuncsBinary,detectLangSimple};
+    callback(funcs_metrics);
+
+    /**
+     * DOVREI CONTROLLARE SE IL WAIT TIME TOTALE DELLE FUNZIONI È MAGGIORE DELLA LORO DURATION ,SIGNIFICA CHE NON HA SENSO UTILIZZARLE IN UNA SEQUENZA
+     * SIGNIFICA INVECE CHE STAREBBERO MEGLIO IN UNA SOLA FUNZIONA
+     * 
+     * INOLTRE SAREBBE IL CASO DI CONTEORLLARE INDIVIDUALMENTE QUALI FUNZIONI RENDONO LA SEQUENZA "NON BUONA" E FARE IL MERGE SOLO DI QUESTE FUNZIONI
+    */
+
+    /**
+     * PER OGNI FUNZIONA, CONTROLLA SE func.duration < func.waitTime SE SI, FANNE IL MERGE
+     * 
+     */
+    /*
+    if(funcs_metrics.duration < funcs_metrics.waitTime){
+        if(seq_metrics.duration + seq_metrics.waitTime + seq_metrics.initTime < funcs_metrics.duration + funcs_metrics.waitTime + funcs_metrics.waitTime);
+
+        to_merge = true;
+    }*/
+}
+
+export {mergeFuncs,mergeFuncsBinary,detectLangSimple,getMainFileBinary,mergeFuncsWithMetrics,checkToMerge};
