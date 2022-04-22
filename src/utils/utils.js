@@ -194,6 +194,10 @@ function detectLangSimple(snippet){
         tmpKind = "python";
     }
 
+    return tmpKind+":default";
+
+
+    /*
     var suppKinds = [];
     conf.kinds.forEach(kind => {
         if(kind.includes(tmpKind)){
@@ -214,7 +218,7 @@ function detectLangSimple(snippet){
             }
         });
         return realKind;
-    }   
+    }   */
 }
 
 function getMainFileBinary(timestamp){
