@@ -16,7 +16,14 @@ spec:
     spec:
       containers:
       - name: faas-optimizer
-        image: davideelliot/faas-optimizer:0.5
+        image: davideelliot/faas-optimizer:0.7.4.5
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "250m"
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
         env:
         - name: API_HOST
           value: "owdev-nginx.openwhisk.svc.cluster.local"

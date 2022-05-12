@@ -375,92 +375,296 @@ function parseFunction(element,timestamp){
     }
 }
 
-/*
-async function createActionBinaryTest(funcName,funcBody,fkind){
-    if(fkind.includes("binary")){
+async function getMetricsByFuncName(fname){
+    console.log("-------------------------------------------------")
+    console.log("getMetricsByFuncName: "+fname)
 
-        const fullPath = path.join(__dirname,"../utils/binaries/")+funcBody;
+    console.log("-------------------------------------------------")
 
-        (async () => {
-            const rawResponse = await fetch('https://'+conf.API_HOST+'/api/v1/namespaces/_/actions/'+funcName+'?overwrite=true', {
-              method: 'PUT',
-              headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-                'Authorization':'Basic '+ btoa(conf.API_KEY)
-              },
-              agent: httpsAgent,
-              body: JSON.stringify({"namespace":"_","name":funcName,"exec":{"kind":fkind,"code":fullPath},"annotations":[{"key":"web-export","value":true},{"key":"raw-http","value":false},{"key":"final","value":true}]})
-            });
-            const content = await rawResponse.json();
-            
-            logger.log("/api/v1/action/create "+ JSON.stringify(content),"info");
-            return content;
-            
-          })()
-    }
-    else{
-        (async () => {
-            const rawResponse = await fetch('https://'+conf.API_HOST+'/api/v1/namespaces/_/actions/'+funcName+'?overwrite=true', {
-              method: 'PUT',
-              headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-                'Authorization':'Basic '+ btoa(conf.API_KEY)
-              },
-              agent: httpsAgent,
-              body: JSON.stringify({"namespace":"_","name":funcName,"exec":{"kind":fkind,"code":funcBody},"annotations":[{"key":"web-export","value":true},{"key":"raw-http","value":false},{"key":"final","value":true}]})
-            });
-            const content = await rawResponse.json();
-            
-            logger.log("/api/v1/action/create "+ JSON.stringify(content),"info");
-            return content;
-            
-          })()
-    }
-    
-}*/
 
-function getMetricsByFuncName(fname,callback){
+
+   /*
+        c'è da considerare che, se di una funzione vengono fatte poche invocazioni, si potrebbe incappare in "cold_starts" , quindi come paramentro di 
+        misura andrebbe anche considerato che se una funzione viene chiamata poco e i cold starts sono pesanti a livello di performance è conveniente fonderle
+
+        se invece le invocazioni sono molte, il cold start può essere ignorato
+
+
+
+        se cold start -> considera l'initTime delle funzioni 
+
+        anche se magari le metriche sono favorevoli per duration e waitTime, il cold start può fare la differenza se le invocazioni sono poche 
+        -> ovviamente rateo di invocazioni "invocazioni/timePeriod"
+   */
+
+
+
     var response = {"duration":"","waitTime":"","initTime":""};
     const metrics = conf.metrics;
-    var metrics_collect= [];
 
-    var promises = [];
-        
+    let metrics_promise = [];
     metrics.forEach(metric => {
-        promises.push(
-            
-                fetch('http://'+conf.METRICS_ENDPOINT+'query=rate('+metric+'{action="'+fname+'"}[1d])',{
+        metrics_promise.push(
+            fetch('http://'+conf.METRICS_ENDPOINT+'query=rate('+metric+'{action="'+fname+'"}[1d])',{
                 method: 'GET',
                 headers: {
                     'Authorization':'Basic '+ btoa(conf.API_KEY)
                 }
                 })
-                .then(response => response.json())
-                .then(res => {
-                    
-                    if(Object.keys(res).includes("data")){
-                        return Number.parseFloat(res.data.result[0].value[1]).toFixed(9);
-                    }
-                }).catch(err =>{
+                .catch(err =>{
                     logger.log(err,"WARN");
+                    return -1;
                 })
-            
-        );
+        )
     });
-
-    Promise.all(promises).then((result) =>
-        metrics_collect = result
-    ).then(() => {
+    return metrics_promise;
+/*
+    Promise.all(metrics_promise)
+    .then((respons_arr_raw)=>{
+        console.log("RESPONSE PROMISE RAW")
+            console.log(respons_arr_raw)
         
+            let payload = {"fname":fname,"responses":[]}
+            let responses = []
+            respons_arr_raw.forEach(rawResponse => {
+                console.log("----------------RAW RESPONSE -----------------\n");
+                console.log(fname+ " " +rawResponse);
+                console.log("---------------------------------\n");
+
+                
+                const res = rawResponse;
+                console.log("----------------RESPONSE -----------------\n");
+                console.log(fname+ " " +JSON.stringify(res));
+                console.log("---------------------------------\n");
+                
+                if(Object.keys(res).includes("data")){
+                    if(res.data.result.length < 1){
+                        responses.push(0)
+                        //metrics_collect.push(0);
+                    }else{
+                        responses.push(Number.parseFloat(res.data.result[0].value[1]).toFixed(9));
+                        //metrics_collect.push(Number.parseFloat(res.data.result[0].value[1]).toFixed(9));
+                    }
+                }else{
+                    responses.push(-1)
+                }
+            })
+            payload.responses = responses
+            console.log(payload)
+        
+            return payload;
+        
+        
+    });*/
+            
+        
+    
+}
+
+function getMetricsByFuncNameCB(fname,cb){
+
+
+    /*
+         c'è da considerare che, se di una funzione vengono fatte poche invocazioni, si potrebbe incappare in "cold_starts" , quindi come paramentro di 
+         misura andrebbe anche considerato che se una funzione viene chiamata poco e i cold starts sono pesanti a livello di performance è conveniente fonderle
+ 
+         se invece le invocazioni sono molte, il cold start può essere ignorato
+ 
+ 
+ 
+         se cold start -> considera l'initTime delle funzioni 
+ 
+         anche se magari le metriche sono favorevoli per duration e waitTime, il cold start può fare la differenza se le invocazioni sono poche 
+         -> ovviamente rateo di invocazioni "invocazioni/timePeriod"
+    */
+ 
+ 
+ 
+    var response = {"duration":"","waitTime":"","initTime":""};
+    const metrics = conf.metrics;
+    var metrics_collect= [];
+    let metrics_promise = [];
+    metrics.forEach(metric => {
+    metrics_promise.push(
+        (async () => {
+            const rawResponse = await fetch('http://'+conf.METRICS_ENDPOINT+'query=rate('+metric+'{action="'+fname+'"}[1d])',{
+            method: 'GET',
+            headers: {
+                'Authorization':'Basic '+ btoa(conf.API_KEY)
+            }
+            }).catch(err =>{
+                logger.log(err,"WARN");
+                return -1;
+            });
+        
+            console.log(rawResponse);
+            const res = await rawResponse.json();
+            console.log(JSON.stringify("\n RES:     \n"+JSON.stringify(res)));
+        
+            if(Object.keys(res).includes("data")){
+                if(res.data.result.length < 1){
+                    return 0;
+                    //metrics_collect.push(0);
+                }else{
+                    return Number.parseFloat(res.data.result[0].value[1]).toFixed(9);
+                    //metrics_collect.push(Number.parseFloat(res.data.result[0].value[1]).toFixed(9));
+                }
+            }
+        
+        })()
+    )
+    });
+ 
+    Promise.all(metrics_promise).then((result)=>
+        metrics_collect = result
+    ).then(()=>{
+        console.log("METRICS COLLECT\n")
+        console.log(metrics_collect)
         response.duration = metrics_collect[1] > 0 ? (metrics_collect[0]/metrics_collect[1])*1000:0;
         response.waitTime = metrics_collect[3] > 0 ? (metrics_collect[2]/metrics_collect[3])*1000:0;
         response.initTime = metrics_collect[5] > 0 ? (metrics_collect[4]/metrics_collect[5])*1000:0;
-        logger.log("retrieved duration,waitTime,initTime metrics for action : " +fname,"info");
+        logger.log("Retrieved duration,waitTime,initTime metrics for action : " +fname,"info");
         logger.log(JSON.stringify(response),"info");
-        callback(response) ;
-    });   
+        cb(response);
+    })
+ }
+
+async function getMetricsByFuncNameAndPeriod(fname,period){
+
+
+    /*
+         c'è da considerare che, se di una funzione vengono fatte poche invocazioni, si potrebbe incappare in "cold_starts" , quindi come paramentro di 
+         misura andrebbe anche considerato che se una funzione viene chiamata poco e i cold starts sono pesanti a livello di performance è conveniente fonderle
+ 
+         se invece le invocazioni sono molte, il cold start può essere ignorato
+ 
+ 
+ 
+         se cold start -> considera l'initTime delle funzioni 
+ 
+         anche se magari le metriche sono favorevoli per duration e waitTime, il cold start può fare la differenza se le invocazioni sono poche 
+         -> ovviamente rateo di invocazioni "invocazioni/timePeriod"
+    */
+ 
+ 
+ 
+    var response = {"duration":"","waitTime":"","initTime":""};
+    const metrics = conf.metrics;
+    var metrics_collect= [];
+    let metrics_promise = [];
+    
+    metrics.forEach(metric => {
+        metrics_promise.push(
+            (async () => {
+                const rawResponse = await fetch('http://'+conf.METRICS_ENDPOINT+'query=rate('+metric+'{action="'+fname+'"}['+period+'])',{
+                method: 'GET',
+                headers: {
+                    'Authorization':'Basic '+ btoa(conf.API_KEY)
+                }
+                }).catch(err =>{
+                    logger.log(err,"WARN");
+                    //metrics_collect.push(-1);
+                    return -1;
+                });
+                console.log(rawResponse);
+                const res = await rawResponse.json();
+                console.log(JSON.stringify("\n RES:     \n"+JSON.stringify(res)));
+
+                if(Object.keys(res).includes("data")){
+                    if(res.data.result.length < 1){
+                        return 0;
+                        //metrics_collect.push(0);
+                    }else{
+                        return Number.parseFloat(res.data.result[0].value[1]).toFixed(9);
+                        //metrics_collect.push(Number.parseFloat(res.data.result[0].value[1]).toFixed(9));
+                    }
+            }
+                
+            
+            })()
+        )
+    })
+
+    Promise.all(metrics_promise).then((result)=>
+        metrics_collect = result
+    ).then(()=>{
+        response.duration = metrics_collect[1] > 0 ? (metrics_collect[0]/metrics_collect[1])*1000:0;
+        response.waitTime = metrics_collect[3] > 0 ? (metrics_collect[2]/metrics_collect[3])*1000:0;
+        response.initTime = metrics_collect[5] > 0 ? (metrics_collect[4]/metrics_collect[5])*1000:0;
+        logger.log("Retrieved duration,waitTime,initTime metrics for action : " +fname+ " and period: "+period,"info");
+        logger.log(JSON.stringify(response),"info");
+        return response;
+    }) 
 }
 
-export {invokeAction,getAction,deleteAction,createAction,invokeActionWithParams,deleteActionCB,getMetricsByFuncName,parseFunction,createActionCB};
+function getMetricsByFuncNameAndPeriodCB(fname,period,cb){
+
+
+    /*
+         c'è da considerare che, se di una funzione vengono fatte poche invocazioni, si potrebbe incappare in "cold_starts" , quindi come paramentro di 
+         misura andrebbe anche considerato che se una funzione viene chiamata poco e i cold starts sono pesanti a livello di performance è conveniente fonderle
+ 
+         se invece le invocazioni sono molte, il cold start può essere ignorato
+ 
+ 
+ 
+         se cold start -> considera l'initTime delle funzioni 
+ 
+         anche se magari le metriche sono favorevoli per duration e waitTime, il cold start può fare la differenza se le invocazioni sono poche 
+         -> ovviamente rateo di invocazioni "invocazioni/timePeriod"
+    */
+ 
+ 
+ 
+    var response = {"duration":"","waitTime":"","initTime":""};
+    const metrics = conf.metrics;
+    var metrics_collect= [];
+    let metrics_promise = [];
+    
+    metrics.forEach(metric => {
+        metrics_promise.push(
+            (async () => {
+                const rawResponse = await fetch('http://'+conf.METRICS_ENDPOINT+'query=rate('+metric+'{action="'+fname+'"}['+period+'])',{
+                method: 'GET',
+                headers: {
+                    'Authorization':'Basic '+ btoa(conf.API_KEY)
+                }
+                }).catch(err =>{
+                    logger.log(err,"WARN");
+                    //metrics_collect.push(-1);
+                    return -1;
+                });
+                console.log(rawResponse);
+                const res = await rawResponse.json();
+                console.log(JSON.stringify("\n RES:     \n"+JSON.stringify(res)));
+
+                if(Object.keys(res).includes("data")){
+                    if(res.data.result.length < 1){
+                        return 0;
+                        //metrics_collect.push(0);
+                    }else{
+                        return Number.parseFloat(res.data.result[0].value[1]).toFixed(9);
+                        //metrics_collect.push(Number.parseFloat(res.data.result[0].value[1]).toFixed(9));
+                    }
+            }
+                
+            
+            })()
+        )
+    })
+    
+        
+
+    Promise.all(metrics_promise).then((result)=>
+        metrics_collect = result
+    ).then(()=>{
+        response.duration = metrics_collect[1] > 0 ? (metrics_collect[0]/metrics_collect[1])*1000:0;
+        response.waitTime = metrics_collect[3] > 0 ? (metrics_collect[2]/metrics_collect[3])*1000:0;
+        response.initTime = metrics_collect[5] > 0 ? (metrics_collect[4]/metrics_collect[5])*1000:0;
+        logger.log("Retrieved duration,waitTime,initTime metrics for action : " +fname+ " and period: "+period,"info");
+        logger.log(JSON.stringify(response),"info");
+        cb(response);
+    }) 
+}
+
+export {invokeAction,getAction,deleteAction,createAction,invokeActionWithParams,deleteActionCB,getMetricsByFuncName,parseFunction,createActionCB,getMetricsByFuncNameAndPeriod,getMetricsByFuncNameAndPeriodCB,getMetricsByFuncNameCB};

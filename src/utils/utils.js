@@ -13,8 +13,10 @@ function mergeFuncsWithMetrics(funcs_metrics,seqName,is_binary,callback){
     funcs_metrics.forEach(fm=>{
         if(fm.to_merge) funcs.push(fm.func);
     });
+    console.log(funcs)
 
     if(is_binary){
+        
         mergeFuncsBinary(funcs,seqName,function(result){
             callback(result);
         }) 
@@ -26,66 +28,6 @@ function mergeFuncsWithMetrics(funcs_metrics,seqName,is_binary,callback){
 
     
 }
-
-function mergeFuncs(funcs,callback){
-
-    const kind = funcs[0].kind;
-
-    if(kind.includes("nodejs")){
-        logger.log("Merging nodejs actions","info");
-        var param = funcs[0].param;
-        var wrappedFunc = "function main("+param+") {";
-        funcs.forEach(f => {
-            wrappedFunc = wrappedFunc.concat(f.code);
-        });
-
-        funcs.forEach((f,i) => {
-            if(i == funcs.length -1){
-                wrappedFunc = wrappedFunc.concat("return ").concat(f.invocation).concat(param+");");
-            }
-            else{
-                wrappedFunc = wrappedFunc.concat("var "+f.name+"Res = ").concat(f.invocation).concat(param+");");
-                param = f.name+"Res";
-            }
-            
-        });
-        wrappedFunc = wrappedFunc.concat("}").concat(os.EOL);
-
-        callback(wrappedFunc);
-    }
-
-    if(kind.includes("python")){
-
-        logger.log("Merging python actions","info");
-        var param = funcs[0].param;
-        var wrappedFunc = "def main("+param+"):";
-
-        funcs.forEach(f => {
-            //wrappedFunc = wrappedFunc.concat("\n\t").concat(f.code);
-            wrappedFunc = wrappedFunc.concat("\n");
-            var codeArray = f.code.split(os.EOL);
-            codeArray.forEach(line => {
-                wrappedFunc = wrappedFunc.concat("\t").concat(line).concat("\n");
-            });            
-        });
-
-        
-        funcs.forEach((f,i) => {
-            if(i == funcs.length -1){
-                wrappedFunc = wrappedFunc.concat("\n\treturn ").concat(f.invocation).concat(param+")");
-            }
-            else{
-                wrappedFunc = wrappedFunc.concat("\t").concat(f.name+"Res = ").concat(f.invocation).concat(param+")");
-                param = f.name+"Res";
-            }
-        });
-        callback(wrappedFunc);
-    }
-
-    
-}
-
-
 
 function mergeFuncsBinary(funcs,seqName,callback){
 
@@ -185,6 +127,68 @@ function mergeFuncsBinary(funcs,seqName,callback){
     callback(timestamp);
 }
 
+function mergeFuncs(funcs,callback){
+
+    const kind = funcs[0].kind;
+
+    if(kind.includes("nodejs")){
+        logger.log("Merging nodejs actions","info");
+        var param = funcs[0].param;
+        var wrappedFunc = "function main("+param+") {";
+        funcs.forEach(f => {
+            wrappedFunc = wrappedFunc.concat(f.code);
+        });
+
+        funcs.forEach((f,i) => {
+            if(i == funcs.length -1){
+                wrappedFunc = wrappedFunc.concat("return ").concat(f.invocation).concat(param+");");
+            }
+            else{
+                wrappedFunc = wrappedFunc.concat("var "+f.name+"Res = ").concat(f.invocation).concat(param+");");
+                param = f.name+"Res";
+            }
+            
+        });
+        wrappedFunc = wrappedFunc.concat("}").concat(os.EOL);
+
+        callback(wrappedFunc);
+    }
+
+    if(kind.includes("python")){
+
+        logger.log("Merging python actions","info");
+        var param = funcs[0].param;
+        var wrappedFunc = "def main("+param+"):";
+
+        funcs.forEach(f => {
+            //wrappedFunc = wrappedFunc.concat("\n\t").concat(f.code);
+            wrappedFunc = wrappedFunc.concat("\n");
+            var codeArray = f.code.split(os.EOL);
+            codeArray.forEach(line => {
+                wrappedFunc = wrappedFunc.concat("\t").concat(line).concat("\n");
+            });            
+        });
+
+        
+        funcs.forEach((f,i) => {
+            if(i == funcs.length -1){
+                wrappedFunc = wrappedFunc.concat("\n\treturn ").concat(f.invocation).concat(param+")");
+            }
+            else{
+                wrappedFunc = wrappedFunc.concat("\t").concat(f.name+"Res = ").concat(f.invocation).concat(param+")");
+                param = f.name+"Res";
+            }
+        });
+        callback(wrappedFunc);
+    }
+
+    
+}
+
+
+
+
+
 function detectLangSimple(snippet){
     let tmpKind;
     if(snippet.includes("function ")){
@@ -245,11 +249,10 @@ function getMainFileBinary(timestamp){
 
 
 function checkToMerge(funcs_metrics,callback){
-    var to_merge = false;
 
     funcs_metrics.forEach(f =>{
-        if(f.duration < f.waitTime + f.initTime){
-            funcs_metrics.to_merge = true;
+        if(f.metrics.duration < f.metrics.waitTime + f.metrics.initTime){
+            f.to_merge = true;
         }
     })
 
