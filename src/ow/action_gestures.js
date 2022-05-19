@@ -103,43 +103,52 @@ async function createAction(funcName,funcBody,fkind){
     if(fkind == "sequence"){
 
 
-        //COME SE FA?
-        (async () => {
-            const rawResponse = await fetch('https://'+conf.API_HOST+'/api/v1/namespaces/_/actions/'+funcName+'?overwrite=true', {
-              method: 'PUT',
-              headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-                'Authorization':'Basic '+ btoa(conf.API_KEY)
-              },
-              agent: httpsAgent,
-              body: JSON.stringify({"namespace":"_","name":funcName,"exec":{"kind":fkind,"code":funcBody},"annotations":[{"key":"web-export","value":true},{"key":"raw-http","value":false},{"key":"final","value":true}]})
-            });
-            const content = await rawResponse.json();
-            
-            logger.log("/api/v1/action/create "+ JSON.stringify(content),"info");
-            return content;
-            
-          })()
+        try {
+            (async () => {
+                const rawResponse = await fetch('https://'+conf.API_HOST+'/api/v1/namespaces/_/actions/'+funcName+'?overwrite=true', {
+                method: 'PUT',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'Authorization':'Basic '+ btoa(conf.API_KEY)
+                },
+                agent: httpsAgent,
+                body: JSON.stringify({"namespace":"_","name":funcName,"exec":{"kind":fkind,"code":funcBody},"annotations":[{"key":"web-export","value":true},{"key":"raw-http","value":false},{"key":"final","value":true}]})
+                });
+                const content = await rawResponse.json();
+                
+                logger.log("/api/v1/action/create "+ JSON.stringify(content),"info");
+                return content;
+                
+            })()
+        }catch (error) {
+            logger.log(error,"error");
+            return error;
+        }
     }
     else{
-        (async () => {
-            const rawResponse = await fetch('https://'+conf.API_HOST+'/api/v1/namespaces/_/actions/'+funcName+'?overwrite=true', {
-              method: 'PUT',
-              headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-                'Authorization':'Basic '+ btoa(conf.API_KEY)
-              },
-              agent: httpsAgent,
-              body: JSON.stringify({"namespace":"_","name":funcName,"exec":{"kind":fkind,"code":funcBody},"annotations":[{"key":"web-export","value":true},{"key":"raw-http","value":false},{"key":"final","value":true}]})
-            });
-            const content = await rawResponse.json();
-            
-            logger.log("/api/v1/action/create "+ JSON.stringify(content),"info");
-            return content;
-            
-          })()
+        try{
+            (async () => {
+                const rawResponse = await fetch('https://'+conf.API_HOST+'/api/v1/namespaces/_/actions/'+funcName+'?overwrite=true', {
+                method: 'PUT',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'Authorization':'Basic '+ btoa(conf.API_KEY)
+                },
+                agent: httpsAgent,
+                body: JSON.stringify({"namespace":"_","name":funcName,"exec":{"kind":fkind,"code":funcBody},"annotations":[{"key":"web-export","value":true},{"key":"raw-http","value":false},{"key":"final","value":true}]})
+                });
+                const content = await rawResponse.json();
+                
+                logger.log("/api/v1/action/create "+ JSON.stringify(content),"info");
+                return content;
+                
+            })()
+        } catch (error) {
+            logger.log(error,"error");
+            return error;
+        }
     }
     
 }
@@ -169,54 +178,62 @@ function createActionCB(funcName,funcBody,fkind,callback){
               })()
         } catch (error) {
             logger.log(error,"error");
+            return error;
+
         }
         
     }
     if(fkind == "sequence"){
 
-
-        //COME SE FA?
-        (async () => {
-            const rawResponse = await fetch('https://'+conf.API_HOST+'/api/v1/namespaces/_/actions/'+funcName+'?overwrite=true', {
-              method: 'PUT',
-              headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-                'Authorization':'Basic '+ btoa(conf.API_KEY)
-              },
-              agent: httpsAgent,
-              body: JSON.stringify({"namespace":"_","name":funcName,"exec":{"kind":fkind,"code":funcBody},"annotations":[{"key":"web-export","value":true},{"key":"raw-http","value":false},{"key":"final","value":true}]})
-            });
-            const content = await rawResponse.json();
-            
-            logger.log("/api/v1/action/create "+ JSON.stringify(content),"info");
-            callback(content);
-            
-          })()
+        try {
+            (async () => {
+                const rawResponse = await fetch('https://'+conf.API_HOST+'/api/v1/namespaces/_/actions/'+funcName+'?overwrite=true', {
+                method: 'PUT',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'Authorization':'Basic '+ btoa(conf.API_KEY)
+                },
+                agent: httpsAgent,
+                body: JSON.stringify({"namespace":"_","name":funcName,"exec":{"kind":fkind,"components":funcBody},"annotations":[{"key":"web-export","value":true},{"key":"raw-http","value":false},{"key":"final","value":true}]})
+                });
+                const content = await rawResponse.json();
+                
+                logger.log("/api/v1/action/create "+ JSON.stringify(content),"info");
+                callback(content);
+                
+            })()
+        } catch (error) {
+            logger.log(error,"error");
+            return error;
+        }
     }
     else{
-        (async () => {
-            const rawResponse = await fetch('https://'+conf.API_HOST+'/api/v1/namespaces/_/actions/'+funcName+'?overwrite=true', {
-              method: 'PUT',
-              headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-                'Authorization':'Basic '+ btoa(conf.API_KEY)
-              },
-              agent: httpsAgent,
-              body: JSON.stringify({"namespace":"_","name":funcName,"exec":{"kind":fkind,"code":funcBody},"annotations":[{"key":"web-export","value":true},{"key":"raw-http","value":false},{"key":"final","value":true}]})
-            });
-            const content = await rawResponse.json();
-            
-            logger.log("/api/v1/action/create "+ JSON.stringify(content),"info");
-            callback(content);
-            
-          })()
+        try {
+            (async () => {
+                const rawResponse = await fetch('https://'+conf.API_HOST+'/api/v1/namespaces/_/actions/'+funcName+'?overwrite=true', {
+                  method: 'PUT',
+                  headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'Authorization':'Basic '+ btoa(conf.API_KEY)
+                  },
+                  agent: httpsAgent,
+                  body: JSON.stringify({"namespace":"_","name":funcName,"exec":{"kind":fkind,"code":funcBody},"annotations":[{"key":"web-export","value":true},{"key":"raw-http","value":false},{"key":"final","value":true}]})
+                });
+                const content = await rawResponse.json();
+                
+                logger.log("/api/v1/action/create "+ JSON.stringify(content),"info");
+                callback(content);
+                
+            })()
+        } catch (error) {
+            logger.log(error,"error");
+            return error;
+        } 
     }
-    
 }
 
-//metti il catch sul fetchv e try/catch
 async function deleteAction(funcName){
 
 
@@ -269,6 +286,7 @@ function deleteActionCB(funcName,callback){
     } catch (error) {
         
         logger.log(error,"ERROR");
+        return error;
     }
 
 }
@@ -278,8 +296,8 @@ function deleteActionCB(funcName,callback){
 async function getAction(funcName){ 
 
     logger.log("Getting action "+funcName,"info");   
-
-    const response = await fetch('https://'+conf.API_HOST+'/api/v1/namespaces/_/actions/'+funcName+'?blocking=true',{
+    try {
+        const response = await fetch('https://'+conf.API_HOST+'/api/v1/namespaces/_/actions/'+funcName+'?blocking=true',{
         method: 'GET',
         headers: {
             'Authorization':'Basic '+ btoa(conf.API_KEY)
@@ -287,13 +305,17 @@ async function getAction(funcName){
         agent: httpsAgent
       });
 
-    const data =  response.json();
-    logger.log("/api/v1/action/get " + data,"info");
+        const data =  response.json();
+        logger.log("/api/v1/action/get " + data,"info");
 
-    return data;
+        return data;
+    } catch (error) {
+        logger.log(error,"ERROR");
+        return error;
+    }
+    
 }
 
-//vedi gestione errori
 function parseFunction(element,timestamp){
 
     logger.log("Parsing function","info");
@@ -375,13 +397,8 @@ function parseFunction(element,timestamp){
     }
 }
 
-async function getMetricsByFuncName(fname){
-    console.log("-------------------------------------------------")
-    console.log("getMetricsByFuncName: "+fname)
 
-    console.log("-------------------------------------------------")
-
-
+function getMetricsByFuncName(fname){
 
    /*
         c'è da considerare che, se di una funzione vengono fatte poche invocazioni, si potrebbe incappare in "cold_starts" , quindi come paramentro di 
@@ -397,67 +414,47 @@ async function getMetricsByFuncName(fname){
         -> ovviamente rateo di invocazioni "invocazioni/timePeriod"
    */
 
-
-
     var response = {"duration":"","waitTime":"","initTime":""};
     const metrics = conf.metrics;
-
-    let metrics_promise = [];
+    let metrics_promise = []
     metrics.forEach(metric => {
         metrics_promise.push(
-            fetch('http://'+conf.METRICS_ENDPOINT+'query=rate('+metric+'{action="'+fname+'"}[1d])',{
+            (async () => {
+                const rawResponse = await fetch('http://'+conf.METRICS_ENDPOINT+'query=rate('+metric+'{action="'+fname+'"}[1d])',{
                 method: 'GET',
                 headers: {
                     'Authorization':'Basic '+ btoa(conf.API_KEY)
                 }
-                })
-                .catch(err =>{
+                }).catch(err =>{
                     logger.log(err,"WARN");
                     return -1;
-                })
-        )
-    });
-    return metrics_promise;
-/*
-    Promise.all(metrics_promise)
-    .then((respons_arr_raw)=>{
-        console.log("RESPONSE PROMISE RAW")
-            console.log(respons_arr_raw)
-        
-            let payload = {"fname":fname,"responses":[]}
-            let responses = []
-            respons_arr_raw.forEach(rawResponse => {
-                console.log("----------------RAW RESPONSE -----------------\n");
-                console.log(fname+ " " +rawResponse);
-                console.log("---------------------------------\n");
-
-                
-                const res = rawResponse;
-                console.log("----------------RESPONSE -----------------\n");
-                console.log(fname+ " " +JSON.stringify(res));
-                console.log("---------------------------------\n");
-                
+                });
+            
+                if(rawResponse == -1) return rawResponse;
+                const res =  await rawResponse.json();
+            
                 if(Object.keys(res).includes("data")){
                     if(res.data.result.length < 1){
-                        responses.push(0)
-                        //metrics_collect.push(0);
+                        return 0;
                     }else{
-                        responses.push(Number.parseFloat(res.data.result[0].value[1]).toFixed(9));
-                        //metrics_collect.push(Number.parseFloat(res.data.result[0].value[1]).toFixed(9));
+                        return Number.parseFloat(res.data.result[0].value[1]).toFixed(9);
                     }
                 }else{
-                    responses.push(-1)
+                    return -1;
                 }
-            })
-            payload.responses = responses
-            console.log(payload)
-        
-            return payload;
-        
-        
-    });*/
             
-        
+            })()
+        )
+    });
+
+    return Promise.all(metrics_promise).then((metrics_collect)=>{
+        response.duration = metrics_collect[1] > 0 ? (metrics_collect[0]/metrics_collect[1])*1000:0;
+        response.waitTime = metrics_collect[3] > 0 ? (metrics_collect[2]/metrics_collect[3])*1000:0;
+        response.initTime = metrics_collect[5] > 0 ? (metrics_collect[4]/metrics_collect[5])*1000:0;
+        logger.log("Retrieved duration,waitTime,initTime metrics for action : " +fname,"info");
+        logger.log(JSON.stringify(response),"info");
+        return response;
+    });
     
 }
 
@@ -497,18 +494,16 @@ function getMetricsByFuncNameCB(fname,cb){
                 return -1;
             });
         
-            console.log(rawResponse);
             const res = await rawResponse.json();
-            console.log(JSON.stringify("\n RES:     \n"+JSON.stringify(res)));
         
             if(Object.keys(res).includes("data")){
                 if(res.data.result.length < 1){
                     return 0;
-                    //metrics_collect.push(0);
                 }else{
                     return Number.parseFloat(res.data.result[0].value[1]).toFixed(9);
-                    //metrics_collect.push(Number.parseFloat(res.data.result[0].value[1]).toFixed(9));
                 }
+            }else{
+                return -1;
             }
         
         })()
@@ -518,8 +513,6 @@ function getMetricsByFuncNameCB(fname,cb){
     Promise.all(metrics_promise).then((result)=>
         metrics_collect = result
     ).then(()=>{
-        console.log("METRICS COLLECT\n")
-        console.log(metrics_collect)
         response.duration = metrics_collect[1] > 0 ? (metrics_collect[0]/metrics_collect[1])*1000:0;
         response.waitTime = metrics_collect[3] > 0 ? (metrics_collect[2]/metrics_collect[3])*1000:0;
         response.initTime = metrics_collect[5] > 0 ? (metrics_collect[4]/metrics_collect[5])*1000:0;
@@ -529,7 +522,7 @@ function getMetricsByFuncNameCB(fname,cb){
     })
  }
 
-async function getMetricsByFuncNameAndPeriod(fname,period){
+function getMetricsByFuncNameAndPeriod(fname,period){
 
 
     /*
@@ -550,7 +543,6 @@ async function getMetricsByFuncNameAndPeriod(fname,period){
  
     var response = {"duration":"","waitTime":"","initTime":""};
     const metrics = conf.metrics;
-    var metrics_collect= [];
     let metrics_promise = [];
     
     metrics.forEach(metric => {
@@ -563,38 +555,35 @@ async function getMetricsByFuncNameAndPeriod(fname,period){
                 }
                 }).catch(err =>{
                     logger.log(err,"WARN");
-                    //metrics_collect.push(-1);
                     return -1;
                 });
-                console.log(rawResponse);
-                const res = await rawResponse.json();
-                console.log(JSON.stringify("\n RES:     \n"+JSON.stringify(res)));
-
+                if(rawResponse == -1) return rawResponse;
+                const res =  await rawResponse.json();
+            
                 if(Object.keys(res).includes("data")){
                     if(res.data.result.length < 1){
                         return 0;
-                        //metrics_collect.push(0);
                     }else{
                         return Number.parseFloat(res.data.result[0].value[1]).toFixed(9);
-                        //metrics_collect.push(Number.parseFloat(res.data.result[0].value[1]).toFixed(9));
                     }
-            }
+                }else{
+                    return -1;
+                }
                 
             
             })()
         )
     })
 
-    Promise.all(metrics_promise).then((result)=>
-        metrics_collect = result
-    ).then(()=>{
+    return Promise.all(metrics_promise).then((metrics_collect)=>{
+
         response.duration = metrics_collect[1] > 0 ? (metrics_collect[0]/metrics_collect[1])*1000:0;
         response.waitTime = metrics_collect[3] > 0 ? (metrics_collect[2]/metrics_collect[3])*1000:0;
         response.initTime = metrics_collect[5] > 0 ? (metrics_collect[4]/metrics_collect[5])*1000:0;
-        logger.log("Retrieved duration,waitTime,initTime metrics for action : " +fname+ " and period: "+period,"info");
+        logger.log("Retrieved duration,waitTime,initTime metrics for action : " +fname,"info");
         logger.log(JSON.stringify(response),"info");
         return response;
-    }) 
+    });
 }
 
 function getMetricsByFuncNameAndPeriodCB(fname,period,cb){
@@ -614,8 +603,6 @@ function getMetricsByFuncNameAndPeriodCB(fname,period,cb){
          -> ovviamente rateo di invocazioni "invocazioni/timePeriod"
     */
  
- 
- 
     var response = {"duration":"","waitTime":"","initTime":""};
     const metrics = conf.metrics;
     var metrics_collect= [];
@@ -631,28 +618,22 @@ function getMetricsByFuncNameAndPeriodCB(fname,period,cb){
                 }
                 }).catch(err =>{
                     logger.log(err,"WARN");
-                    //metrics_collect.push(-1);
                     return -1;
                 });
-                console.log(rawResponse);
                 const res = await rawResponse.json();
-                console.log(JSON.stringify("\n RES:     \n"+JSON.stringify(res)));
 
                 if(Object.keys(res).includes("data")){
                     if(res.data.result.length < 1){
                         return 0;
-                        //metrics_collect.push(0);
                     }else{
                         return Number.parseFloat(res.data.result[0].value[1]).toFixed(9);
-                        //metrics_collect.push(Number.parseFloat(res.data.result[0].value[1]).toFixed(9));
                     }
-            }
-                
-            
+                }else{
+                    return -1;
+                }
             })()
         )
     })
-    
         
 
     Promise.all(metrics_promise).then((result)=>

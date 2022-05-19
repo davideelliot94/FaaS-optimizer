@@ -11,7 +11,7 @@ const __dirname = path.resolve();
 function mergeFuncsWithMetrics(funcs_metrics,seqName,is_binary,callback){
     var funcs = [];
     funcs_metrics.forEach(fm=>{
-        if(fm.to_merge) funcs.push(fm.func);
+        if(fm.to_merge) funcs.push(fm.function);
     });
     console.log(funcs)
 

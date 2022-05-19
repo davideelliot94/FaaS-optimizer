@@ -6,11 +6,13 @@ ENV API_HOST=""
 ENV METRICS_ENDPOINT=""
 ENV AMBIENT=""
 
-COPY . /src
+COPY . /faas-optimizer
 
-WORKDIR /src
+WORKDIR /faas-optimizer/src
 
 RUN npm install
+RUN apt-get update
+RUN apt install zip
 
 EXPOSE 4000
 
