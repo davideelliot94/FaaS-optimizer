@@ -265,11 +265,7 @@ app.post("/api/v1/action/optimize",async (req,res)=>{
                     })
                 }); 
             } 
-        })
-
-        
-
-        
+        })       
     })
     .catch(err => {
         logger.log(err,"WARN")

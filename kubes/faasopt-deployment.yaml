@@ -17,6 +17,9 @@ spec:
       containers:
       - name: faas-optimizer
         image: davideelliot/faas-optimizer:0.7.4.5
+        volumeMounts:
+        - mountPath: /cli
+          name: cli
         resources:
           requests:
             memory: "64Mi"
@@ -31,3 +34,7 @@ spec:
           value: "owdev-prometheus-server.openwhisk.svc.cluster.local:9090/api/v1/query?"
         ports:
         - containerPort: 4000
+      volumes:
+      - name: cli
+        hostPath:
+          path: $HOME/faas-optimizer/cli

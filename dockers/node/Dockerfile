@@ -1,13 +1,18 @@
 FROM node:latest
 
-ENV API_HOST="owdev-apigateway.openwhisk.svc.cluster.local"
+ENV API_HOST=""
+ENV METRICS_ENDPOINT=""
 ENV AMBIENT=""
 
-COPY . /src
+COPY . /faas-optimizer
 
-WORKDIR /src
+WORKDIR /faas-optimizer/src
 
-RUN npm install
+VOLUME [ "../../cli" ]
+
+RUN npm install --production
+RUN apt-get update
+RUN apt install zip
 
 EXPOSE 4000
 
