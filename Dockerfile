@@ -13,8 +13,7 @@ VOLUME  "/cli"
 RUN npm install --production
 RUN apt-get update
 RUN apt install zip
-RUN sh cli_download.sh
 
 EXPOSE 4000
 
-CMD npm start
+CMD sh script.sh
