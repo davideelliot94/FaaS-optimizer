@@ -12,7 +12,6 @@ VOLUME  "/cli"
 
 RUN npm install --production
 RUN apt-get update
-RUN apt install zip
 
 EXPOSE 4000
 

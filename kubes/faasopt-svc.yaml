@@ -7,9 +7,6 @@ spec:
   selector:
     app: faas-optimizer
   ports:
-      # By default and for convenience, the `targetPort` is set to the same value as the `port` field.
     - port: 4000
       targetPort: 4000
-      # Optional field
-      # By default and for convenience, the Kubernetes control plane will allocate a port from a range (default: 30000-32767)
       nodePort: 30000
