@@ -56,6 +56,6 @@ function cleanDirs(subdir){
   
 }
 
-module.exports = {extractZipLocal,cleanDirs,zipDirLocal,zipDirectoryLocal}
+module.exports = {extractZipLocal,cleanDirs,zipDirLocal}
 
 

@@ -11,8 +11,7 @@ WORKDIR /faas-optimizer/src
 VOLUME  "/cli" 
 
 RUN npm install --production
-RUN apt-get update
 
 EXPOSE 4000
 
-CMD sh script.sh
+CMD sh /bin/script.sh
