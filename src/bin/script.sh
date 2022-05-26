@@ -1,8 +1,7 @@
 #!bin/bash
 
-wget -O ../cli/main-cli https://raw.githubusercontent.com/davideelliot94/FaaS-Optimizer-CLI/main/main-cli -q --show-progress
-#wget -O ../cli/main-cli https://raw.githubusercontent.com/davideelliot94/FaaS-Optimizer-CLI/main/main-cli -q --show-progress
-#sdeconda riga è per l'installer
+wget -O ../../cli/main-cli https://raw.githubusercontent.com/davideelliot94/FaaS-Optimizer-CLI/main/fopt -q --show-progress
+wget -O ../../cli/setup_cli.sh https://raw.githubusercontent.com/davideelliot94/FaaS-Optimizer-CLI/main/setup_cli.sh -q --show-progress
 
 
 echo "-------------------------------------------------------------------------------------------  \n\n"
@@ -15,6 +14,3 @@ echo "--------------------------------------------------------------------------
 
 
 npm start
-
-
-#

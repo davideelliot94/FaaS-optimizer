@@ -14,4 +14,4 @@ RUN npm install --production
 
 EXPOSE 4000
 
-CMD sh /bin/script.sh
+CMD sh bin/script.sh
