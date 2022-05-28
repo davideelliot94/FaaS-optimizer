@@ -40,6 +40,11 @@ app.post("/api/v1/action/merge",(req,res)=>{
                 
                 fg.getAction(tmp[tmp.length -1])
                     .then((result) => {
+
+                        if(Object.keys(result.exec).includes("components")){
+                        
+                            return 0;
+                        }
                         const timestamp = Date.now();
                         
                         var parsed = fg.parseFunction(result,timestamp);
@@ -60,6 +65,14 @@ app.post("/api/v1/action/merge",(req,res)=>{
         Promise.all(promises).then((result) =>
             funcs = result
         ).then(() => {
+
+            funcs.forEach((r)=>{
+                if(r == 0){
+                    logger.log("Sub-sequence detected","info")
+                    res.json({mex:"Sub-sequence detected, atm is not possible to optimizer sequence containing sub sequences!"})
+                    return;
+                }
+            })
 
             if(funcs.length < 2)
                 res.json({ mex: "An error occurred parsing functions" });
@@ -135,11 +148,18 @@ app.post("/api/v1/action/optimize",async (req,res)=>{
     }
 
     result.exec.components.forEach(funcName => {
+        
         var tmp = funcName.split('/');
         promises.push(
             
             fg.getAction(tmp[tmp.length -1])
                 .then((result) => {
+
+                    if(Object.keys(result.exec).includes("components")){
+                        
+                        return 0;
+                    }
+
                     const timestamp = Date.now();
                     sequencePart = sequencePart+timestamp;
                     var parsed = fg.parseFunction(result,timestamp);
@@ -152,18 +172,21 @@ app.post("/api/v1/action/optimize",async (req,res)=>{
                 }).catch((error) => {
                     logger.log(error,"error");
                     res.json(error);
-                    return;
+                    return -1;
                 })
         );
     });
 
     Promise.all(promises).then((result) =>{
         result.forEach((r)=>{
+            if(r == 0){
+                logger.log("Sub-sequence detected","info")
+                res.json({mex:"Sub-sequence detected, atm is not possible to optimizer sequence containing sub sequences!"})
+                return;
+            }
             funcs.push({"function":r,"metrics":{},"to_merge":false})
         })
     }).then(async () => {
-
-        console.log("FUNCS "+funcs)
 
         if(funcs.length < 2){
             res.json({ mex: "An error occurred parsing functions, check if provided function is a sequence" });
@@ -380,7 +403,6 @@ app.post("/api/v1/action/get", (req, res) => {
 
 app.post("/api/v1/action/delete", (req, res) => {
 
-    const funcName = req.body.name;
     logger.log("/api/v1/action/delete","info");
 
     try {
@@ -420,7 +442,6 @@ app.post("/api/v1/metrics/get", async (req, res) => {
 
     if(p !== null && p !== undefined){
         fg.getMetricsByFuncNameAndPeriodCB(req.body.name,p,function(response){
-            console.log("RESPONSE "+response)
             response.duration = response.duration + " ms";
             response.waitTime = response.waitTime + " ms";
             response.initTime = response.initTime + " ms";
@@ -428,7 +449,6 @@ app.post("/api/v1/metrics/get", async (req, res) => {
         });        
     }else{
         fg.getMetricsByFuncNameCB(req.body.name,function(response){
-            console.log("RESPONSE "+response)
             response.duration = response.duration + " ms";
             response.waitTime = response.waitTime + " ms";
             response.initTime = response.initTime + " ms";

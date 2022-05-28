@@ -8,7 +8,7 @@ COPY . /faas-optimizer
 
 WORKDIR /faas-optimizer/src
 
-VOLUME  "/cli" 
+VOLUME  "/faas-optimizer/cli" 
 
 RUN npm install --production
 
