@@ -10,7 +10,9 @@ const metrics = config.get('openwhisk.metrics');
 const kinds = config.get('openwhisk.kinds');
 const API_KEY=config.get('openwhisk.apikey');
 const packagejson = config.get('openwhisk.binary.packagejson');
+const packagejson_samelang = config.get('openwhisk.binary.packagejson_samelang');
+
 const httpsAgent = new https.Agent({
     rejectUnauthorized: false,
     });
-module.exports =  {API_HOST,API_KEY,PORT,httpsAgent,AMBIENT,kinds,packagejson,METRICS_ENDPOINT,metrics}
+module.exports =  {API_HOST,API_KEY,PORT,httpsAgent,AMBIENT,kinds,packagejson,METRICS_ENDPOINT,metrics,packagejson_samelang}

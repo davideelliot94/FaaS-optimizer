@@ -153,9 +153,11 @@ async function createAction(funcName,funcBody,fkind){
     
 }
 
-function createActionCB(funcName,funcBody,fkind,callback){
-    if(fkind == "binary"){
+function createActionCB(funcName,funcBody,fkind,merge_type,callback){
 
+    if(merge_type === "binary"){
+
+        //MERGE DI TIPO BINARIO
         try {
             (async () => {
                 const rawResponse = await fetch('https://'+conf.API_HOST+'/api/v1/namespaces/_/actions/'+funcName+'?overwrite=true', {
@@ -166,7 +168,7 @@ function createActionCB(funcName,funcBody,fkind,callback){
                     'Authorization':'Basic '+ btoa(conf.API_KEY)
                   },
                   agent: httpsAgent,
-                  body: JSON.stringify({"namespace":"_","name":funcName,"exec":{"kind":"nodejs:default","code":funcBody,"binary":"true"},"annotations":[{"key":"web-export","value":true},{"key":"raw-http","value":false},{"key":"final","value":true}]})
+                  body: JSON.stringify({"namespace":"_","name":funcName,"exec":{"kind":fkind,"code":funcBody,"binary":"true"},"annotations":[{"key":"web-export","value":true},{"key":"raw-http","value":false},{"key":"final","value":true}]})
                 }).catch(err =>{
                     logger.log(err,"warn");
                 });
@@ -181,34 +183,59 @@ function createActionCB(funcName,funcBody,fkind,callback){
             return error;
 
         }
-        
-    }
-    if(fkind == "sequence"){
-
-        try {
-            (async () => {
-                const rawResponse = await fetch('https://'+conf.API_HOST+'/api/v1/namespaces/_/actions/'+funcName+'?overwrite=true', {
-                method: 'PUT',
-                headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json',
-                    'Authorization':'Basic '+ btoa(conf.API_KEY)
-                },
-                agent: httpsAgent,
-                body: JSON.stringify({"namespace":"_","name":funcName,"exec":{"kind":fkind,"components":funcBody},"annotations":[{"key":"web-export","value":true},{"key":"raw-http","value":false},{"key":"final","value":true}]})
-                });
-                const content = await rawResponse.json();
-                
-                logger.log("/api/v1/action/create "+ JSON.stringify(content),"info");
-                callback(content);
-                
-            })()
-        } catch (error) {
-            logger.log(error,"error");
-            return error;
+    }else{
+        if(fkind == "sequence"){
+    
+            try {
+                (async () => {
+                    const rawResponse = await fetch('https://'+conf.API_HOST+'/api/v1/namespaces/_/actions/'+funcName+'?overwrite=true', {
+                    method: 'PUT',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                        'Authorization':'Basic '+ btoa(conf.API_KEY)
+                    },
+                    agent: httpsAgent,
+                    body: JSON.stringify({"namespace":"_","name":funcName,"exec":{"kind":fkind,"components":funcBody},"annotations":[{"key":"web-export","value":true},{"key":"raw-http","value":false},{"key":"final","value":true}]})
+                    });
+                    const content = await rawResponse.json();
+                    
+                    logger.log("/api/v1/action/create "+ JSON.stringify(content),"info");
+                    callback(content);
+                    
+                })()
+            } catch (error) {
+                logger.log(error,"error");
+                return error;
+            }
+        }else{
+            try {
+                (async () => {
+                    const rawResponse = await fetch('https://'+conf.API_HOST+'/api/v1/namespaces/_/actions/'+funcName+'?overwrite=true', {
+                      method: 'PUT',
+                      headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                        'Authorization':'Basic '+ btoa(conf.API_KEY)
+                      },
+                      agent: httpsAgent,
+                      body: JSON.stringify({"namespace":"_","name":funcName,"exec":{"kind":fkind,"code":funcBody},"annotations":[{"key":"web-export","value":true},{"key":"raw-http","value":false},{"key":"final","value":true}]})
+                    });
+                    const content = await rawResponse.json();
+                    
+                    logger.log("/api/v1/action/create "+ JSON.stringify(content),"info");
+                    callback(content);
+                    
+                })()
+            } catch (error) {
+                logger.log(error,"error");
+                return error;
+            } 
         }
     }
-    else{
+
+/*
+    if(fkind != "binary" && fkind != "sequence"){
         try {
             (async () => {
                 const rawResponse = await fetch('https://'+conf.API_HOST+'/api/v1/namespaces/_/actions/'+funcName+'?overwrite=true', {
@@ -232,6 +259,61 @@ function createActionCB(funcName,funcBody,fkind,callback){
             return error;
         } 
     }
+    else{
+        if(fkind == "binary"){
+            try {
+                (async () => {
+                    const rawResponse = await fetch('https://'+conf.API_HOST+'/api/v1/namespaces/_/actions/'+funcName+'?overwrite=true', {
+                      method: 'PUT',
+                      headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                        'Authorization':'Basic '+ btoa(conf.API_KEY)
+                      },
+                      agent: httpsAgent,
+                      body: JSON.stringify({"namespace":"_","name":funcName,"exec":{"kind":"nodejs:default","code":funcBody,"binary":"true"},"annotations":[{"key":"web-export","value":true},{"key":"raw-http","value":false},{"key":"final","value":true}]})
+                    }).catch(err =>{
+                        logger.log(err,"warn");
+                    });
+                    const content = await rawResponse.json();
+                    
+                    logger.log("/api/v1/action/create "+ JSON.stringify(content),"info");
+                    callback(content);
+                    
+                  })()
+            } catch (error) {
+                logger.log(error,"error");
+                return error;
+    
+            }
+            
+        }
+        if(fkind == "sequence"){
+    
+            try {
+                (async () => {
+                    const rawResponse = await fetch('https://'+conf.API_HOST+'/api/v1/namespaces/_/actions/'+funcName+'?overwrite=true', {
+                    method: 'PUT',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                        'Authorization':'Basic '+ btoa(conf.API_KEY)
+                    },
+                    agent: httpsAgent,
+                    body: JSON.stringify({"namespace":"_","name":funcName,"exec":{"kind":fkind,"components":funcBody},"annotations":[{"key":"web-export","value":true},{"key":"raw-http","value":false},{"key":"final","value":true}]})
+                    });
+                    const content = await rawResponse.json();
+                    
+                    logger.log("/api/v1/action/create "+ JSON.stringify(content),"info");
+                    callback(content);
+                    
+                })()
+            } catch (error) {
+                logger.log(error,"error");
+                return error;
+            }
+        }
+    }*/
 }
 
 async function deleteAction(funcName){
@@ -286,7 +368,6 @@ function deleteActionCB(funcName,callback){
     } catch (error) {
         
         logger.log(error,"ERROR");
-        return error;
     }
 
 }
@@ -316,79 +397,204 @@ async function getAction(funcName){
     
 }
 
-function parseFunction(element,timestamp){
+async function parseFunction(element,timestamp,binaries_timestamp){
 
     logger.log("Parsing function","info");
 
-    if (element.exec.binary) {
-        logger.log("Binary function","info");
+    if(element.exec.binary) {
 
-        /*
-            DEVO CONTROLLARE IN CHE LINGUAGGIO È LA FUNZIONE BINARY
-        */
         let buff = Buffer.from(element.exec.code,'base64');
 
         const dirPath = path.join(__dirname ,"src/utils/zip_workdir/zipped/") + timestamp;
         const zipPath = path.join(__dirname , "src/utils/zip_workdir/zipped/") + timestamp + '/func.zip';
+
+        
         fs.mkdirSync(dirPath, { recursive: true });
         fs.writeFileSync(zipPath, buff);
-
-        zipgest.extractZipLocal(timestamp);
+        await zipgest.extractZipLocal(timestamp);
        
-        var func = utils.getMainFileBinary(timestamp);        
-        var kind = utils.detectLangSimple(func);
+        //var func = utils.getMainFileBinary(timestamp); 
 
+        
+        //zipgest.cleanDirs("/zip_workdir/extracted/"+timestamp);
+        var kind = element.exec.kind;
+
+        
         if(kind.includes("nodejs")){
+            var pack = JSON.parse(utils.getPackageInfoBinaryNode(timestamp));
+
+
+            //VA SCOMMENTATA TUTTA QUESTA ROBA
+            //QUANDO SO CHE LE ROUTINE VANNO
+
+
+            var func = utils.getMainFileBinary2(timestamp,pack.main); 
+
+            const binaries = path.join(__dirname,"src/utils/binaries/");
+            fs.mkdirSync(binaries+ binaries_timestamp, { recursive: true });
+
+            //ROUTINE PER LEGGERE IL CONTENUTO DI TUTTI I FILE 
+            utils.copyAllFiles("/src/utils/zip_workdir/extracted/"+timestamp,"/src/utils/binaries/"+binaries_timestamp,pack.main)
+            //const file_list =utils.copyAllFilesNew("/src/utils/zip_workdir/extracted/"+timestamp,"/src/utils/binaries/"+binaries_timestamp,pack.main)
+
+            zipgest.cleanDirs("/zip_workdir/extracted/"+timestamp);
+
+
+            let main_func;
+            let main_func_invocation
+
+            if (func.indexOf("exports.main") === -1){
+                main_func = "main"
+                main_func_invocation = func.substring(func.indexOf(main_func))
+
+            }else{
+                const last_line = (func.substring(func.indexOf("exports.main"),func.length))
+                main_func = last_line.substring(last_line.indexOf("=")+1,last_line.indexOf(";")).trim()
+                main_func_invocation = func.substring(func.indexOf(main_func))
+            }
+            
+
+            
+
+            //devo aggiungere una variabile a "invokation" per evitare duplicati nelle funzioni con stesso nome 
+
             var tmp = {
                 "name": element.name, //string
-                "code": func.substring(func.indexOf("function"), func.indexOf("function") + 9).concat(" " + element.name).concat(func.substring(func.indexOf("("))),
-                "invocation": element.name + "(",
-                "param": func.substring(func.indexOf("(") + 1, func.indexOf(")")),
+                "code":func.replace(" "+main_func+"("," "+element.name +timestamp+"("),
+                "invocation": element.name +timestamp+"(",
+                "param":main_func_invocation.substring(main_func_invocation.indexOf(main_func+"(")+main_func.length + 1,main_func_invocation.indexOf(")")),
                 "binary": true,
-                "kind": kind
+                "dependecies":(pack.dependencies === undefined || pack.dependencies === null )? "" :pack.dependencies,
+                "kind": kind,
+              //"asynch":false
             }
+            /*
+            if(tmp.code.includes("async ") || tmp.code.includes(" Promise(") || tmp.code.includes(".then(")){
+                tmp.asynch = true;
+            }*/
+            
+            /*
+            if(file_list.length > 0){
+                file_list.forEach(lf=>{
+
+                tmp.code = tmp.code.replace(lf.split("-")[0]+lf.split("-")[1],lf)
+            })
+            }
+            
+            */
+
             return tmp;
         }
 
+
         if(kind.includes("python")){
+
+            //VA SCOMMENTATA TUTTA QUESTA ROBA
+            //QUANDO SO CHE LE ROUTINE VANNO
+
+
+            var func = utils.getMainFileBinary2(timestamp,"__main__.py"); 
+
+            const binaries = path.join(__dirname,"src/utils/binaries/");
+            fs.mkdirSync(binaries+ binaries_timestamp, { recursive: true });
+
+            //ROUTINE PER LEGGERE IL CONTENUTO DI TUTTI I FILE
+            utils.copyAllFiles("/src/utils/zip_workdir/extracted/"+timestamp+"/","/src/utils/binaries/"+binaries_timestamp+"/","__main__.py")
+            zipgest.cleanDirs("/zip_workdir/extracted/"+timestamp);
+
+
+            let main_func;
+
+            if (func.indexOf("main") === -1){
+                // boh lo devo cercare
+                main_func = "main"
+            }else{
+                main_func = "main"
+            }
+
             var tmp = {
                 "name": element.name, //string
-                "code": func.substring(func.indexOf("def"), func.indexOf("def") + 3).concat(" " + element.name).concat(func.substring(func.indexOf("("))),
-                "invocation": element.name + "(",
-                "param": func.substring(func.indexOf("(") + 1, func.indexOf(")")),
+                "code": func.replace(" "+main_func+"("," "+element.name +timestamp+"("),
+                "invocation": element.name + timestamp+"(",
+                "param": func.substring(func.indexOf(main_func+"(") +main_func.length+ 1, func.indexOf(")")),
                 "binary": true,
+                "dependecies":"",
                 "kind": kind
             }
+
+            /*
+            if(file_list.length > 0){
+                file_list.forEach(lf=>{
+                    tmp.code = tmp.code.replace(" "+lf.split("-")[0]+" "," "+lf+" ")
+                })
+            }
+            */
             return tmp;
         }     
      
     }
     else {
         logger.log("Not binary function","info");
+        var func = element.exec.code
+        var kind = utils.detectLangSimple(func);
 
-        var kind = utils.detectLangSimple(element.exec.code);
         if(kind.includes("nodejs")){
+
+            /**
+             * DEVO PORTARMI APPRESSO I Node modules per dio
+             */
+
+            let main_func;
+            let main_func_invocation
+
+            if (func.indexOf("exports.main") === -1){
+                main_func = "main";
+                main_func_invocation = func.substring(func.indexOf(main_func))
+
+            }else{
+                const last_line = (func.substring(func.indexOf("exports.main"),func.length))
+                main_func = last_line.substring(last_line.indexOf("=")+1,last_line.indexOf(";")).trim()
+                main_func_invocation = func.substring(func.indexOf(main_func))
+            }
+
             var func = element.exec.code;
             var tmp = {
                 "name": element.name, //string
-                "code": func.substring(func.indexOf("function"), func.indexOf("function") + 9).concat(" " + element.name).concat(func.substring(func.indexOf("("))),
-                "invocation": element.name + "(",
-                "param": func.substring(func.indexOf("(") + 1, func.indexOf(")")),
+                //"code": func.substring(func.indexOf("function"), func.indexOf("function") + 9).concat(" " + element.name).concat(func.substring(func.indexOf("("))),
+                "code":func.replace(" "+main_func+"("," "+element.name +timestamp+"("),
+                "invocation": element.name +timestamp+ "(",
+                //"param": func.substring(func.indexOf("(") + 1, func.indexOf(")")),
+                "param":main_func_invocation.substring(main_func_invocation.indexOf(main_func+"(")+main_func.length + 1,main_func_invocation.indexOf(")")),
                 "binary": false,
+                "dependecies":"",
                 "kind": kind
             }
 
             return tmp;
         }
 
+        //devo controllare come funziona per il main se python
         if(kind.includes("python")){
+
+            let main_func;
+
+            if (func.indexOf("main") === -1){
+                // boh lo devo cercare
+                main_func = "main"
+            }else{
+                main_func = "main"
+            }
+
+            
+
             var func = element.exec.code;
             var tmp = {
                 "name": element.name, //string
-                "code": func.substring(func.indexOf("def"), func.indexOf("def") + 3).concat(" " + element.name).concat(func.substring(func.indexOf("("))),
-                "invocation": element.name + "(",
-                "param": func.substring(func.indexOf("(") + 1, func.indexOf(")")),
+                "code": func.replace(" "+main_func+"("," "+element.name +timestamp+"("),
+                "invocation": element.name + timestamp+"(",
+                "param": func.substring(func.indexOf(main_func+"(") +main_func.length+ 1, func.indexOf(")")),
                 "binary": false,
+                "dependecies":"",
                 "kind": kind
             }
 
