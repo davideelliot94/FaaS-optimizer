@@ -3,51 +3,10 @@ import * as fs from 'fs';
 import path from "path";
 import os from 'os';
 import child_process from "child_process";
+import { ifError } from "assert";
 
 
 const __dirname = path.resolve();
-
-function mergeFuncsWithMetrics(funcs_metrics,seqName,is_binary,same_lang,callback){
-    var funcs = [];
-    funcs_metrics.forEach(fm=>{
-        if(fm.to_merge) funcs.push(fm.function);
-    });
-
-/*
-    if(same_lang){
-        if(is_binary){
-            mergeFuncsBinarySameLangCB(funcs,seqName,function(result){
-                callback(result);
-            }) 
-        }else{
-            mergePlainTextFuncs(funcs,function(result){
-                callback(result);
-            })
-        }
-
-    }else{
-        
-        mergeFuncsDiffLangBinary(funcs,seqName,function(result){
-            callback(result);
-        })
-    
-
-    }*/
-
-    if(is_binary){
-        
-        
-        mergeFuncsBinary(funcs,seqName,function(result){
-            callback(result);
-        }) 
-    }else{
-        mergeFuncs(funcs,function(result){
-            callback(result);
-        })
-    }
-
-    
-}
 
 function mergeFuncsBinarySameLangCB(funcs,seqName,binaries_timestamp,callback){
 
@@ -70,11 +29,11 @@ function mergeFuncsBinarySameLangCB(funcs,seqName,binaries_timestamp,callback){
         //fs.mkdirSync(binaries+ timestamp, { recursive: true });
         
         //FOR LOOP PER SEGNARE TUTTI GLI IMPORT
-        //var nasync = 0
-        funcs.forEach(f => {/*
+        var nasync = 0
+        funcs.forEach(f => {
             if(f.asynch){
                 nasync++
-            }*/
+            }
             if(f.binary){
                 var lines = f.code.split(os.EOL);
                 var new_code = ""
@@ -91,7 +50,7 @@ function mergeFuncsBinarySameLangCB(funcs,seqName,binaries_timestamp,callback){
 
                     }else{
                         if(!line.includes("exports.main")){
-                            new_code = new_code.concat(line)
+                            new_code = new_code.concat(line).concat("\n");
                         }
                         
                     }
@@ -112,8 +71,8 @@ function mergeFuncsBinarySameLangCB(funcs,seqName,binaries_timestamp,callback){
                 importsString = importsString.concat(imp+"\n")
             })
         }
-        //var wrappedFunc = nasync  > 0 ? importsString.concat("async function main("+param+") {\n");:importsString.concat("function main("+param+") {\n");
-        var wrappedFunc = importsString.concat("function main("+param+") {\n");
+        var wrappedFunc = nasync  > 0 ? importsString.concat("async function main("+param+") {\n"):importsString.concat("function main("+param+") {\n");
+        //var wrappedFunc = importsString.concat("function main("+param+") {\n");
         
         funcs.forEach(f => {
             
@@ -123,20 +82,21 @@ function mergeFuncsBinarySameLangCB(funcs,seqName,binaries_timestamp,callback){
         
 
         funcs.forEach((f,i) => {
-            if(i == funcs.length -1){/*
+            if(i == funcs.length -1){
                 if(f.asynch){
                     wrappedFunc = wrappedFunc.concat("return await ").concat(f.invocation).concat(param+");\n");
-                }*/
-                
-                wrappedFunc = wrappedFunc.concat("return ").concat(f.invocation).concat(param+");\n");
-                
+                }else{
+                    wrappedFunc = wrappedFunc.concat("return ").concat(f.invocation).concat(param+");\n");
+
+                }
             }
-            else{/*
+            else{
                 if(f.asynch){
                     wrappedFunc = wrappedFunc.concat("var "+f.name+"Res = await ").concat(f.invocation).concat(param+");\n");
-                }*/
+                }else{
+                    wrappedFunc = wrappedFunc.concat("var "+f.name+"Res = ").concat(f.invocation).concat(param+");\n");
+                }
     
-                wrappedFunc = wrappedFunc.concat("var "+f.name+"Res = ").concat(f.invocation).concat(param+");\n");
                 param = f.name+"Res";
                 
             }
@@ -154,8 +114,6 @@ function mergeFuncsBinarySameLangCB(funcs,seqName,binaries_timestamp,callback){
             "dependencies": dependecies
         };
         let pj = Buffer.from(JSON.stringify(pjraw),"utf8");
-        console.log(JSON.stringify(pjraw))
-        console.log(wrappedFunc)
         
         fs.writeFileSync(binaries+ binaries_timestamp + '/package.json', pj,{encoding: "utf8"});
         fs.writeFileSync(binaries+ binaries_timestamp + '/index.js', buff,{encoding: "utf8"});
@@ -173,8 +131,12 @@ function mergeFuncsBinarySameLangCB(funcs,seqName,binaries_timestamp,callback){
         //fs.mkdirSync(binaries+ timestamp, { recursive: true });
         
         //FOR LOOP PER SEGNARE TUTTI GLI IMPORT
-    
+        var nasync = 0
+
         funcs.forEach(f => {
+            if(f.asynch){
+                nasync++
+            }
             if(f.binary){
                 var lines = f.code.split(os.EOL);
                 var new_code = ""
@@ -201,7 +163,9 @@ function mergeFuncsBinarySameLangCB(funcs,seqName,binaries_timestamp,callback){
                 importsString = importsString.concat(imp+"\n")
             })
         }
-        var wrappedFunc = importsString.concat("def main("+param+"):\n");
+        var wrappedFunc = nasync  > 0 ? importsString.concat("async def main("+param+"):\n"):importsString.concat("def main("+param+"):\n");
+
+        //var wrappedFunc = importsString.concat("def main("+param+"):\n");
         
         funcs.forEach(f => {
 
@@ -218,12 +182,23 @@ function mergeFuncsBinarySameLangCB(funcs,seqName,binaries_timestamp,callback){
 
         funcs.forEach((f,i) => {
             if(i == funcs.length -1){
+
+                if(f.asynch){
+                    wrappedFunc = wrappedFunc.concat("\treturn await ").concat(f.invocation).concat(param+")\n");
+                }else{
+                    wrappedFunc = wrappedFunc.concat("\treturn ").concat(f.invocation).concat(param+")\n");
+                }   
                 
-                wrappedFunc = wrappedFunc.concat("\treturn ").concat(f.invocation).concat(param+")\n");
                 
             }
             else{
-    
+
+                if(f.asynch){
+                    wrappedFunc = wrappedFunc.concat("\t"+f.name+"Res = await ").concat(f.invocation).concat(param+")\n");
+                }else{
+                    wrappedFunc = wrappedFunc.concat("\t"+f.name+"Res = ").concat(f.invocation).concat(param+")\n");
+                }
+                
                 wrappedFunc = wrappedFunc.concat("\t"+f.name+"Res = ").concat(f.invocation).concat(param+")\n");
                 param = f.name+"Res";
                 
@@ -231,7 +206,6 @@ function mergeFuncsBinarySameLangCB(funcs,seqName,binaries_timestamp,callback){
         });
 
         let buff = Buffer.from(wrappedFunc, 'utf8');
-
         fs.writeFileSync(binaries+ binaries_timestamp + '/__main__.py', buff,{encoding: "utf8"});
 
         //CICLO PER SCRIVERE TUTTI GLI ALTRI FILES SE CE NE SONO
@@ -257,9 +231,6 @@ function mergeFuncsDiffLangPlainTextBinary(funcs,seqName,binaries_timestamp,call
     var param = funcs[0].param;
     const binaries = path.join(__dirname,"src/utils/binaries/");
     fs.mkdirSync(binaries+ binaries_timestamp, { recursive: true });
-    
-    //vanno assolutamente modificate per essere estensibili
-   
     
     var wrappedFunc = import_spawn.concat("function main("+param+") {\n");
     
@@ -295,10 +266,8 @@ function mergeFuncsDiffLangPlainTextBinary(funcs,seqName,binaries_timestamp,call
                         }else{
                             newcode = newcode.concat(line).concat("\n");
                         }
-                    }
-                    
+                    }   
                 });  
-
                 let buff = Buffer.from(newcode, 'utf8');
 
                 fs.writeFileSync(binaries + binaries_timestamp +"/"+ fileName, buff,{encoding: "utf8"});
@@ -311,21 +280,17 @@ function mergeFuncsDiffLangPlainTextBinary(funcs,seqName,binaries_timestamp,call
                 lines.forEach(line => {
                     if(line.includes("import ") || line.includes("require(")){
                         // la riga contiene un import
-    
                         /**
                          * 
                          * E SE UNO USA I REQUIRE E IMPORT INSIEME??
                          */
                         
                         imports = imports.concat(line).concat("\n");
-    
                     }else{
                         if(!line.includes("exports.main")){
                             new_code = new_code.concat(line)
-                        }
-                        
-                    }
-                    
+                        }                       
+                    }   
                 })
                 //recupero le corrette dipendenze
                 if(f.dependecies != "") Object.assign(dependecies,f.dependecies);
@@ -346,21 +311,15 @@ function mergeFuncsDiffLangPlainTextBinary(funcs,seqName,binaries_timestamp,call
     }
     
     Object.assign(dependecies,{"child_process": "latest"})
-    var wrappedFunc = importsString.concat(wrappedFunc);
-    console.log(wrappedFunc)
-    
+    var wrappedFunc = importsString.concat(wrappedFunc);    
 
     funcs.forEach((f,i) => {
-        if(i == funcs.length -1){
-            
+        if(i == funcs.length -1){       
             wrappedFunc = wrappedFunc.concat("return ").concat(f.invocation).concat(param+");\n");
-            
         }
         else{
- 
             wrappedFunc = wrappedFunc.concat("var "+f.name+"Res = ").concat(f.invocation).concat(param+");\n");
-            param = f.name+"Res";
-            
+            param = f.name+"Res";         
         }
     });
     wrappedFunc = wrappedFunc.concat("}\n").concat("exports.main = main;\n");
@@ -391,22 +350,38 @@ function mergePlainTextFuncs(funcs,callback){
         logger.log("Merging nodejs actions","info");
         var param = funcs[0].param;
         var wrappedFunc = "function main("+param+") {";
+        var nasync = 0
         funcs.forEach(f => {
+            if(f.asynch){
+                nasync++
+            }
             wrappedFunc = wrappedFunc.concat(f.code);
         });
 
+        if(nasync > 0){
+            wrappedFunc = "async ".concat(wrappedFunc)
+        }
+
         funcs.forEach((f,i) => {
             if(i == funcs.length -1){
-                wrappedFunc = wrappedFunc.concat("return ").concat(f.invocation).concat(param+");");
+                if(f.asynch){
+                    wrappedFunc = wrappedFunc.concat("return await ").concat(f.invocation).concat(param+");\n");
+                }else{
+                    wrappedFunc = wrappedFunc.concat("return ").concat(f.invocation).concat(param+");\n");
+                }         
             }
             else{
-                wrappedFunc = wrappedFunc.concat("var "+f.name+"Res = ").concat(f.invocation).concat(param+");");
+                if(f.asynch){
+                    wrappedFunc = wrappedFunc.concat("var "+f.name+"Res = await ").concat(f.invocation).concat(param+");\n");
+                }else{
+                    wrappedFunc = wrappedFunc.concat("var "+f.name+"Res = ").concat(f.invocation).concat(param+");\n");
+                }
+
                 param = f.name+"Res";
             }
             
         });
         wrappedFunc = wrappedFunc.concat("}").concat(os.EOL);
-
         callback(wrappedFunc);
     }
 
@@ -428,21 +403,24 @@ function mergePlainTextFuncs(funcs,callback){
         
         funcs.forEach((f,i) => {
             if(i == funcs.length -1){
-                wrappedFunc = wrappedFunc.concat("\n\treturn ").concat(f.invocation).concat(param+")");
+                if(f.asynch){
+                    wrappedFunc = wrappedFunc.concat("\n\treturn await ").concat(f.invocation).concat(param+")\n");
+                }else{
+                    wrappedFunc = wrappedFunc.concat("\n\treturn ").concat(f.invocation).concat(param+")\n");
+                }
             }
             else{
-                wrappedFunc = wrappedFunc.concat("\t").concat(f.name+"Res = ").concat(f.invocation).concat(param+")");
+                if(f.asynch){
+                    wrappedFunc = wrappedFunc.concat("\t").concat(f.name+"Res = await ").concat(f.invocation).concat(param+")\n");
+                }else{
+                    wrappedFunc = wrappedFunc.concat("\t").concat(f.name+"Res = ").concat(f.invocation).concat(param+")\n");
+                }           
                 param = f.name+"Res";
             }
         });
         callback(wrappedFunc);
-    }
-    
+    }   
 }
-
-
-
-
 
 function detectLangSimple(snippet){
     let tmpKind;
@@ -464,24 +442,17 @@ function getPackageInfoBinaryNode(timestamp){
     var pack = "";
     lsSplit.forEach(elem =>{
         if(elem.includes(".json")){
-            pack = child_process.execSync("cat "+fullPath+"/*.json");
-            
-        }/*
-        if(elem.includes(".py")){
-            pack = child_process.execSync("cat "+fullPath+"/*.py");
-        }*/
-
+            pack = child_process.execSync("cat "+fullPath+"/*.json");    
+        }
     })
 
     return pack.toString();
-
 }
 
-function getMainFileBinary2(timestamp,name){
+function getMainFileBinary(timestamp,name){
 
     const fullPath = path.join(__dirname,"src/utils/zip_workdir/extracted/"+timestamp+"/");
     var func = "";
-
     func = child_process.execSync("cat "+fullPath+name);
 
     return func.toString();
@@ -490,7 +461,6 @@ function getMainFileBinary2(timestamp,name){
 function copyAllFilesNew(extracted,binaries,main_name){
     const fullPath_extracted = path.join(__dirname,extracted);
     const fullPath_binaries = path.join(__dirname,binaries);
-
 
     var lsFiles = child_process.execSync("ls -p "+fullPath_extracted +" | grep -v / ").toString();
     var lsSplitFiles = lsFiles.split("\n");
@@ -505,11 +475,9 @@ function copyAllFilesNew(extracted,binaries,main_name){
     })
 
     var subDirCount = child_process.execSync("find "+ fullPath_extracted +"/ -maxdepth 1 -type d | wc -l");
-    console.log(subDirCount)
     if(subDirCount > 1){
         var lsDirs = child_process.execSync("ls -d "+fullPath_extracted +"/*/").toString();
         var lsSplitDirs = lsDirs.split("\n");
-        console.log(lsSplitDirs)
         lsSplitDirs.forEach(dir =>{
             if(dir.length > 1 ){
                 const dir_arr = dir.split("/");
@@ -520,13 +488,11 @@ function copyAllFilesNew(extracted,binaries,main_name){
         })
     }
     return file_list
-    
 }
 
 function copyAllFiles(extracted,binaries,main_name){
     const fullPath_extracted = path.join(__dirname,extracted);
     const fullPath_binaries = path.join(__dirname,binaries);
-
 
     var lsFiles = child_process.execSync("ls -p "+fullPath_extracted +" | grep -v / ").toString();
     var lsSplitFiles = lsFiles.split("\n");
@@ -538,11 +504,9 @@ function copyAllFiles(extracted,binaries,main_name){
     })
 
     var subDirCount = child_process.execSync("find "+ fullPath_extracted +"/ -maxdepth 1 -type d | wc -l");
-    console.log(subDirCount)
     if(subDirCount > 1){
         var lsDirs = child_process.execSync("ls -d "+fullPath_extracted +"/*/").toString();
         var lsSplitDirs = lsDirs.split("\n");
-        console.log(lsSplitDirs)
         lsSplitDirs.forEach(dir =>{
             if(dir.length > 1 ){
                 const dir_arr = dir.split("/");
@@ -552,38 +516,24 @@ function copyAllFiles(extracted,binaries,main_name){
             }
         })
     }
-    
 }
 
-function getMainFileBinary(timestamp){
+function applyMergePolicies(funcs_with_metrics,callback){
 
-    const fullPath = path.join(__dirname,"src/utils/zip_workdir/extracted/"+timestamp+"/");
-
-    var ls = child_process.execSync("ls "+fullPath).toString();
-    var lsSplit = ls.split("\n");
-    var func = "";
-    lsSplit.forEach(elem =>{
-        if(elem.includes(".js")){
-            func = child_process.execSync("cat "+fullPath+"/*.js");
-            
+    let i = 0;
+    funcs_with_metrics.forEach(f =>{
+        if(i <= 1) {
+            f.to_merge = true;
+            i++;
+        }else{
+            f.to_merge = false;
+            i = 0;
         }
-        if(elem.includes(".py")){
-            func = child_process.execSync("cat "+fullPath+"/__main__.py");
-        }
-
-    })
-
-    return func.toString();
-}
-
-
-function checkToMerge(funcs_metrics,callback){
-
-    funcs_metrics.forEach(f =>{
-
+        
+        /*
         if(f.metrics.duration < f.metrics.waitTime){
             f.to_merge = true;
-        }
+        }*/
 /*
         if(f.metrics.coldStarts > SOGLIA){
             if(f.metrics.initTime > f.metrics.duration + f.metrics.waitTime){
@@ -600,25 +550,42 @@ function checkToMerge(funcs_metrics,callback){
      */
 
 
-    callback(funcs_metrics);
-
-    /**
-     * DOVREI CONTROLLARE SE IL WAIT TIME TOTALE DELLE FUNZIONI È MAGGIORE DELLA LORO DURATION ,SIGNIFICA CHE NON HA SENSO UTILIZZARLE IN UNA SEQUENZA
-     * SIGNIFICA INVECE CHE STAREBBERO MEGLIO IN UNA SOLA FUNZIONA
-     * 
-     * INOLTRE SAREBBE IL CASO DI CONTEORLLARE INDIVIDUALMENTE QUALI FUNZIONI RENDONO LA SEQUENZA "NON BUONA" E FARE IL MERGE SOLO DI QUESTE FUNZIONI
-    */
-
-    /**
-     * PER OGNI FUNZIONA, CONTROLLA SE func.duration < func.waitTime SE SI, FANNE IL MERGE
-     * 
-     */
-    /*
-    if(funcs_metrics.duration < funcs_metrics.waitTime){
-        if(seq_metrics.duration + seq_metrics.waitTime + seq_metrics.initTime < funcs_metrics.duration + funcs_metrics.waitTime + funcs_metrics.waitTime);
-
-        to_merge = true;
-    }*/
+    callback(funcs_with_metrics);
 }
 
-export {mergePlainTextFuncs,mergeFuncsDiffLangPlainTextBinary,detectLangSimple,getMainFileBinary,getMainFileBinary2,mergeFuncsWithMetrics,checkToMerge,mergeFuncsBinarySameLangCB,getPackageInfoBinaryNode,copyAllFiles};
+function checkPartialMerges(functions_array){
+
+    let index = 0;
+    var parsed_func_array = [];
+    var tmp_array = [];
+
+    while(index < functions_array.length) {
+        const fi = functions_array[index];
+        if(fi.to_merge) {
+            tmp_array.push(fi);
+            if(index +1 == functions_array.length) parsed_func_array.push(tmp_array)
+        }else{
+            if(tmp_array.length > 0){
+                parsed_func_array.push(tmp_array)
+                tmp_array = [];
+            }
+            parsed_func_array.push([fi]);
+        }
+        index++;
+    }
+    return parsed_func_array;
+
+}
+
+export {   
+        mergePlainTextFuncs,
+        mergeFuncsDiffLangPlainTextBinary,
+        detectLangSimple,
+        getMainFileBinary,
+        applyMergePolicies,
+        mergeFuncsBinarySameLangCB,
+        getPackageInfoBinaryNode,
+        copyAllFiles,
+        checkPartialMerges
+    };
+

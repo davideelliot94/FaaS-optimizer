@@ -2,7 +2,7 @@ FROM node:latest
 
 ENV API_HOST=""
 ENV METRICS_ENDPOINT=""
-ENV AMBIENT=""
+ENV ENVIRONMENT=""
 
 COPY . /faas-optimizer
 

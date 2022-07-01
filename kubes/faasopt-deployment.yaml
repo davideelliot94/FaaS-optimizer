@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: faas-optimizer
-        image: davideelliot/faas-optimizer:0.8
+        image: davideelliot/faas-optimizer:<version>
         volumeMounts:
         - mountPath: /faas-optimizer/cli
           name: cli

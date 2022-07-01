@@ -8,9 +8,6 @@ const extract = require('extract-zip')
  
 async function extractZipLocal (timestamp) {
   logger.log("Extracting zip action in directory /zipped/"+timestamp,"info");
-  console.log("PATH EXTRACT ZIP")
-  console.log(__dirname + "/zip_workdir/zipped/"+timestamp+"/func.zip")
-
   try {
     await extract(__dirname + "/zip_workdir/zipped/"+timestamp+"/func.zip", { dir: __dirname+"/zip_workdir/extracted/"+timestamp+"/" })
     cleanDirs("/zip_workdir/zipped/"+timestamp);
@@ -23,15 +20,10 @@ async function extractZipLocal (timestamp) {
 
 function zipDirLocal(subfolder){
   const zipPath = path.join(__dirname,subfolder);
-  console.log("zipDIrLocal")
-  console.log("zipPath")
-  console.log(zipPath)
   var output = fs.createWriteStream(zipPath+".zip");
   var archive = archiver('zip');
 
   output.on('close', function () {
-      console.log(archive.pointer() + ' total bytes');
-      console.log('archiver has been finalized and the output file descriptor has closed.');
       return fs.readFileSync(zipPath+".zip",'base64');
   });
 
@@ -43,9 +35,14 @@ function zipDirLocal(subfolder){
 
   // append files from a sub-directory, putting its contents at the root of archive
   archive.directory(zipPath, false);
-
   archive.finalize();
+}
 
+function getFileSize(subfolder){
+  const path = path.join(__dirname,subfolder);
+  const stat = fs.statSync(path);
+  return stat.size
+  
 }
 
 function zipDirLocalCB(subfolder,callback){
@@ -54,8 +51,6 @@ function zipDirLocalCB(subfolder,callback){
   var archive = archiver('zip');
 
   output.on('close', function () {
-      console.log(archive.pointer() + ' total bytes');
-      console.log('archiver has been finalized and the output file descriptor has closed.');
       const file =  fs.readFileSync(zipPath+".zip",'base64');
       callback(file)
 
@@ -90,6 +85,13 @@ function cleanDirs(subdir){
   return;
 }
 
-module.exports = {extractZipLocal,cleanDirs,zipDirLocal,zipDirLocalCB}
+module.exports = 
+                {
+                  extractZipLocal,
+                  cleanDirs,
+                  zipDirLocal,
+                  zipDirLocalCB,
+                  getFileSize
+                }
 
 

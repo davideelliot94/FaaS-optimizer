@@ -10,32 +10,13 @@ const httpsAgent = conf.httpsAgent;
 const __dirname = path.resolve();
 
 //APIHOST VUOLE IP:PORT
-//ANCORA NON HO CAPITO COME FARE CON LE KEY -> per questo "ignore_certs"
 
-//metti il catch sul fetchv e try/catch
+async function invokeActionWithParams(funcName,params,blocking) {
 
-function invokeAction(funcName) {
-	logger.log("/api/v1/action/invoke","info");
-    fetch('https://'+conf.API_HOST+'/api/v1/namespaces/_/actions/'+funcName+'?blocking=true',{
-        headers: {
-            'Authorization':'Basic '+ btoa(conf.API_KEY)
-        },
-        agent: httpsAgent
-    })
-    .then(response => response.json())
-    .then(data => {
-        logger.log("/api/v1/action/invoke" + data,"info");
-        return data;
-    });
-}
-
-//metti il catch sul fetchv e try/catch
-function invokeActionWithParams(funcName,params) {
-    //mettere la specifica dei parametri
     logger.log(params,"info");
     if(params != null && params != undefined){
-        (async () => {
-            const rawResponse = await fetch('https://'+conf.API_HOST+'/api/v1/namespaces/_/actions/'+funcName+'?blocking=true', {
+        try {
+            const rawResponse = await fetch('https://'+conf.API_HOST+'/api/v1/namespaces/_/actions/'+funcName+'?blocking='+blocking, {
               method: 'POST',
               headers: {
                 'Accept': 'application/json',
@@ -48,112 +29,32 @@ function invokeActionWithParams(funcName,params) {
             const content = await rawResponse.json();
             logger.log("/api/v1/action/invoke-with-params"+ JSON.stringify(content),"info");
             return content;
-          })()
+        } catch (error) {
+            logger.log(error,"ERROR");
+            return error;
+        }
     
     }else{
-        fetch('https://'+conf.API_HOST+'/api/v1/namespaces/_/actions/'+funcName+'?blocking=true',{
-        headers: {
-            'Authorization':'Basic '+ btoa(conf.API_KEY)
-        },
-        agent: httpsAgent
-        })
-        .then(response => response.json())
-        .then(data => {
-            logger.log("/api/v1/action/invoke" + data,"info");
-            return data;
-        }).catch(err =>{
-            logger.log(err,"WARN")
-            res.json(err);
-        });
-    }
-
-	
-}
-
-///metti il catch sul fetchv e try/catch
-
-async function createAction(funcName,funcBody,fkind){
-    if(fkind == "binary"){
-
         try {
-            (async () => {
-                const rawResponse = await fetch('https://'+conf.API_HOST+'/api/v1/namespaces/_/actions/'+funcName+'?overwrite=true', {
-                  method: 'PUT',
-                  headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json',
-                    'Authorization':'Basic '+ btoa(conf.API_KEY)
-                  },
-                  agent: httpsAgent,
-                  body: JSON.stringify({"namespace":"_","name":funcName,"exec":{"kind":"nodejs:default","code":funcBody,"binary":"true"},"annotations":[{"key":"web-export","value":true},{"key":"raw-http","value":false},{"key":"final","value":true}]})
-                }).catch(err =>{
-                    logger.log(err,"warn");
-                });
-                const content = await rawResponse.json();
-                
-                logger.log("/api/v1/action/create "+ JSON.stringify(content),"info");
-                return content;
-                
-              })()
-        } catch (error) {
-            logger.log(error,"error");
-        }
-        
-    }
-    if(fkind == "sequence"){
-
-
-        try {
-            (async () => {
-                const rawResponse = await fetch('https://'+conf.API_HOST+'/api/v1/namespaces/_/actions/'+funcName+'?overwrite=true', {
-                method: 'PUT',
+            const rawResponse = await fetch('https://'+conf.API_HOST+'/api/v1/namespaces/_/actions/'+funcName+'?blocking='+blocking,{
+                method: 'POST',
                 headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json',
                     'Authorization':'Basic '+ btoa(conf.API_KEY)
                 },
-                agent: httpsAgent,
-                body: JSON.stringify({"namespace":"_","name":funcName,"exec":{"kind":fkind,"code":funcBody},"annotations":[{"key":"web-export","value":true},{"key":"raw-http","value":false},{"key":"final","value":true}]})
-                });
-                const content = await rawResponse.json();
-                
-                logger.log("/api/v1/action/create "+ JSON.stringify(content),"info");
-                return content;
-                
-            })()
-        }catch (error) {
-            logger.log(error,"error");
-            return error;
-        }
-    }
-    else{
-        try{
-            (async () => {
-                const rawResponse = await fetch('https://'+conf.API_HOST+'/api/v1/namespaces/_/actions/'+funcName+'?overwrite=true', {
-                method: 'PUT',
-                headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json',
-                    'Authorization':'Basic '+ btoa(conf.API_KEY)
-                },
-                agent: httpsAgent,
-                body: JSON.stringify({"namespace":"_","name":funcName,"exec":{"kind":fkind,"code":funcBody},"annotations":[{"key":"web-export","value":true},{"key":"raw-http","value":false},{"key":"final","value":true}]})
-                });
-                const content = await rawResponse.json();
-                
-                logger.log("/api/v1/action/create "+ JSON.stringify(content),"info");
-                return content;
-                
-            })()
+                agent: httpsAgent
+            });
+            
+            const content = await rawResponse.json();
+            logger.log("/api/v1/action/invoke-with-params"+ JSON.stringify(content),"info");
+            return content;
         } catch (error) {
-            logger.log(error,"error");
+            logger.log(error,"ERROR");
             return error;
-        }
-    }
-    
+        } 
+    }	
 }
 
-function createActionCB(funcName,funcBody,fkind,merge_type,callback){
+function createActionCB(funcName,funcBody,fkind,merge_type,limits,callback){
 
     if(merge_type === "binary"){
 
@@ -168,7 +69,10 @@ function createActionCB(funcName,funcBody,fkind,merge_type,callback){
                     'Authorization':'Basic '+ btoa(conf.API_KEY)
                   },
                   agent: httpsAgent,
-                  body: JSON.stringify({"namespace":"_","name":funcName,"exec":{"kind":fkind,"code":funcBody,"binary":"true"},"annotations":[{"key":"web-export","value":true},{"key":"raw-http","value":false},{"key":"final","value":true}]})
+                  body: JSON.stringify({"namespace":"_","name":funcName,
+                                        "exec":{"kind":fkind,"code":funcBody,"binary":"true"},
+                                        "annotations":[{"key":"web-export","value":true},{"key":"raw-http","value":false},{"key":"final","value":true}],
+                                        "limits":limits})
                 }).catch(err =>{
                     logger.log(err,"warn");
                 });
@@ -196,7 +100,10 @@ function createActionCB(funcName,funcBody,fkind,merge_type,callback){
                         'Authorization':'Basic '+ btoa(conf.API_KEY)
                     },
                     agent: httpsAgent,
-                    body: JSON.stringify({"namespace":"_","name":funcName,"exec":{"kind":fkind,"components":funcBody},"annotations":[{"key":"web-export","value":true},{"key":"raw-http","value":false},{"key":"final","value":true}]})
+                    body: JSON.stringify({"namespace":"_","name":funcName,
+                                          "exec":{"kind":fkind,"components":funcBody},
+                                          "annotations":[{"key":"web-export","value":true},{"key":"raw-http","value":false},{"key":"final","value":true}],
+                                          "limits":limits})
                     });
                     const content = await rawResponse.json();
                     
@@ -219,7 +126,10 @@ function createActionCB(funcName,funcBody,fkind,merge_type,callback){
                         'Authorization':'Basic '+ btoa(conf.API_KEY)
                       },
                       agent: httpsAgent,
-                      body: JSON.stringify({"namespace":"_","name":funcName,"exec":{"kind":fkind,"code":funcBody},"annotations":[{"key":"web-export","value":true},{"key":"raw-http","value":false},{"key":"final","value":true}]})
+                      body: JSON.stringify({"namespace":"_","name":funcName,
+                                            "exec":{"kind":fkind,"code":funcBody},
+                                            "annotations":[{"key":"web-export","value":true},{"key":"raw-http","value":false},{"key":"final","value":true}],
+                                            "limits":limits})
                     });
                     const content = await rawResponse.json();
                     
@@ -233,121 +143,10 @@ function createActionCB(funcName,funcBody,fkind,merge_type,callback){
             } 
         }
     }
-
-/*
-    if(fkind != "binary" && fkind != "sequence"){
-        try {
-            (async () => {
-                const rawResponse = await fetch('https://'+conf.API_HOST+'/api/v1/namespaces/_/actions/'+funcName+'?overwrite=true', {
-                  method: 'PUT',
-                  headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json',
-                    'Authorization':'Basic '+ btoa(conf.API_KEY)
-                  },
-                  agent: httpsAgent,
-                  body: JSON.stringify({"namespace":"_","name":funcName,"exec":{"kind":fkind,"code":funcBody},"annotations":[{"key":"web-export","value":true},{"key":"raw-http","value":false},{"key":"final","value":true}]})
-                });
-                const content = await rawResponse.json();
-                
-                logger.log("/api/v1/action/create "+ JSON.stringify(content),"info");
-                callback(content);
-                
-            })()
-        } catch (error) {
-            logger.log(error,"error");
-            return error;
-        } 
-    }
-    else{
-        if(fkind == "binary"){
-            try {
-                (async () => {
-                    const rawResponse = await fetch('https://'+conf.API_HOST+'/api/v1/namespaces/_/actions/'+funcName+'?overwrite=true', {
-                      method: 'PUT',
-                      headers: {
-                        'Accept': 'application/json',
-                        'Content-Type': 'application/json',
-                        'Authorization':'Basic '+ btoa(conf.API_KEY)
-                      },
-                      agent: httpsAgent,
-                      body: JSON.stringify({"namespace":"_","name":funcName,"exec":{"kind":"nodejs:default","code":funcBody,"binary":"true"},"annotations":[{"key":"web-export","value":true},{"key":"raw-http","value":false},{"key":"final","value":true}]})
-                    }).catch(err =>{
-                        logger.log(err,"warn");
-                    });
-                    const content = await rawResponse.json();
-                    
-                    logger.log("/api/v1/action/create "+ JSON.stringify(content),"info");
-                    callback(content);
-                    
-                  })()
-            } catch (error) {
-                logger.log(error,"error");
-                return error;
-    
-            }
-            
-        }
-        if(fkind == "sequence"){
-    
-            try {
-                (async () => {
-                    const rawResponse = await fetch('https://'+conf.API_HOST+'/api/v1/namespaces/_/actions/'+funcName+'?overwrite=true', {
-                    method: 'PUT',
-                    headers: {
-                        'Accept': 'application/json',
-                        'Content-Type': 'application/json',
-                        'Authorization':'Basic '+ btoa(conf.API_KEY)
-                    },
-                    agent: httpsAgent,
-                    body: JSON.stringify({"namespace":"_","name":funcName,"exec":{"kind":fkind,"components":funcBody},"annotations":[{"key":"web-export","value":true},{"key":"raw-http","value":false},{"key":"final","value":true}]})
-                    });
-                    const content = await rawResponse.json();
-                    
-                    logger.log("/api/v1/action/create "+ JSON.stringify(content),"info");
-                    callback(content);
-                    
-                })()
-            } catch (error) {
-                logger.log(error,"error");
-                return error;
-            }
-        }
-    }*/
-}
-
-async function deleteAction(funcName){
-
-
-    try {
-        fetch('https://'+conf.API_HOST+'/api/v1/namespaces/_/actions/'+funcName,{
-        method: 'DELETE',
-        headers: {
-            'Authorization':'Basic '+ btoa(conf.API_KEY)
-        },
-        agent: httpsAgent
-      })
-        .then(response => response.json())
-        .then(data => {
-            
-            logger.log("/api/v1/action/delete " + JSON.stringify(data),"info");
-        }).catch(err =>{
-            
-            logger.log(err,"WARN")
-            
-            return err;
-        });
-    } catch (error) {
-        
-        logger.log(error,"ERROR");
-        return error;
-    }
-
 }
 
 function deleteActionCB(funcName,callback){
 
-
     try {
         fetch('https://'+conf.API_HOST+'/api/v1/namespaces/_/actions/'+funcName,{
         method: 'DELETE',
@@ -357,22 +156,41 @@ function deleteActionCB(funcName,callback){
         agent: httpsAgent
       })
         .then(response => response.json())
-        .then(data => {
-            
+        .then(data => {  
             logger.log("/api/v1/action/delete " + JSON.stringify(data),"info");
-            callback();
+            callback(data);
         }).catch(err =>{
-            
             logger.log(err,"WARN");
+            callback(error)
         });
-    } catch (error) {
-        
+    } catch (error) {  
         logger.log(error,"ERROR");
+        callback(error)
     }
-
 }
 
-//metti il catch sul fetchv e try/catch
+function listActionsCB(callback){
+
+    try {
+        fetch('https://' + conf.API_HOST + '/api/v1/namespaces/_/actions', {
+            headers: {
+                'Authorization': 'Basic ' + btoa(conf.API_KEY)
+            },
+            agent: httpsAgent
+        })
+        .then(response => response.json())
+        .then(data => {
+            logger.log("/api/v1/action/list" + data, "info")
+            callback(data);
+        }).catch(err => {
+            logger.log(err, "WARN")
+            callback(err);
+        });
+    } catch (error) {
+        logger.log(error, "error");
+        callback(error);
+    }
+}
 
 async function getAction(funcName){ 
 
@@ -424,11 +242,8 @@ async function parseFunction(element,timestamp,binaries_timestamp){
             var pack = JSON.parse(utils.getPackageInfoBinaryNode(timestamp));
 
 
-            //VA SCOMMENTATA TUTTA QUESTA ROBA
-            //QUANDO SO CHE LE ROUTINE VANNO
 
-
-            var func = utils.getMainFileBinary2(timestamp,pack.main); 
+            var func = utils.getMainFileBinary(timestamp,pack.main); 
 
             const binaries = path.join(__dirname,"src/utils/binaries/");
             fs.mkdirSync(binaries+ binaries_timestamp, { recursive: true });
@@ -466,12 +281,14 @@ async function parseFunction(element,timestamp,binaries_timestamp){
                 "binary": true,
                 "dependecies":(pack.dependencies === undefined || pack.dependencies === null )? "" :pack.dependencies,
                 "kind": kind,
-              //"asynch":false
+                "asynch":false,
+                "limits":element.limits
             }
-            /*
-            if(tmp.code.includes("async ") || tmp.code.includes(" Promise(") || tmp.code.includes(".then(")){
+
+            
+            if(tmp.code.includes("async ") || tmp.code.includes(" Promise") || tmp.code.includes(".then(")){
                 tmp.asynch = true;
-            }*/
+            }
             
             /*
             if(file_list.length > 0){
@@ -493,7 +310,7 @@ async function parseFunction(element,timestamp,binaries_timestamp){
             //QUANDO SO CHE LE ROUTINE VANNO
 
 
-            var func = utils.getMainFileBinary2(timestamp,"__main__.py"); 
+            var func = utils.getMainFileBinary(timestamp,"__main__.py"); 
 
             const binaries = path.join(__dirname,"src/utils/binaries/");
             fs.mkdirSync(binaries+ binaries_timestamp, { recursive: true });
@@ -519,7 +336,13 @@ async function parseFunction(element,timestamp,binaries_timestamp){
                 "param": func.substring(func.indexOf(main_func+"(") +main_func.length+ 1, func.indexOf(")")),
                 "binary": true,
                 "dependecies":"",
-                "kind": kind
+                "kind": kind,
+                "asynch":false,
+                "limits":element.limits
+            }
+
+            if(tmp.code.includes("async ") || tmp.code.includes(" await ")){
+                tmp.asynch = true;
             }
 
             /*
@@ -567,7 +390,14 @@ async function parseFunction(element,timestamp,binaries_timestamp){
                 "param":main_func_invocation.substring(main_func_invocation.indexOf(main_func+"(")+main_func.length + 1,main_func_invocation.indexOf(")")),
                 "binary": false,
                 "dependecies":"",
-                "kind": kind
+                "kind": kind,
+                "asynch":false,
+                "limits":element.limits
+            }
+
+            
+            if(tmp.code.includes("async ") || tmp.code.includes(" Promise") || tmp.code.includes(".then(")){
+                tmp.asynch = true;
             }
 
             return tmp;
@@ -585,8 +415,6 @@ async function parseFunction(element,timestamp,binaries_timestamp){
                 main_func = "main"
             }
 
-            
-
             var func = element.exec.code;
             var tmp = {
                 "name": element.name, //string
@@ -595,7 +423,13 @@ async function parseFunction(element,timestamp,binaries_timestamp){
                 "param": func.substring(func.indexOf(main_func+"(") +main_func.length+ 1, func.indexOf(")")),
                 "binary": false,
                 "dependecies":"",
-                "kind": kind
+                "kind": kind,
+                "asynch":false,
+                "limits":element.limits
+            }
+
+            if(tmp.code.includes("async ") || tmp.code.includes(" await ")){
+                tmp.asynch = true;
             }
 
             return tmp;
@@ -603,30 +437,27 @@ async function parseFunction(element,timestamp,binaries_timestamp){
     }
 }
 
-
-function getMetricsByFuncName(fname){
-
-   /*
-        c'è da considerare che, se di una funzione vengono fatte poche invocazioni, si potrebbe incappare in "cold_starts" , quindi come paramentro di 
-        misura andrebbe anche considerato che se una funzione viene chiamata poco e i cold starts sono pesanti a livello di performance è conveniente fonderle
-
-        se invece le invocazioni sono molte, il cold start può essere ignorato
-
-
-
-        se cold start -> considera l'initTime delle funzioni 
-
-        anche se magari le metriche sono favorevoli per duration e waitTime, il cold start può fare la differenza se le invocazioni sono poche 
-        -> ovviamente rateo di invocazioni "invocazioni/timePeriod"
-   */
-
-    var response = {"duration":"","waitTime":"","initTime":""};
+async function getMetricsByFuncNameAndPeriod(fname,period){ 
+ 
+    var response = {"duration":"","waitTime":"","initTime":"","activations":"","coldStarts":""};
     const metrics = conf.metrics;
-    let metrics_promise = []
+    let metrics_promise = [];
+    
     metrics.forEach(metric => {
         metrics_promise.push(
             (async () => {
-                const rawResponse = await fetch('http://'+conf.METRICS_ENDPOINT+'query=rate('+metric+'{action="'+fname+'"}[1d])',{
+                var url = "";
+                if(metric.includes("coldStarts") || metric.includes("activations") || metric.includes("status")){
+                    if(metric.includes("status")){
+                        url = 'http://'+conf.METRICS_ENDPOINT+'query=increase('+metric+'{action="'+fname+'",status=\"success\"}['+period+'])'
+                    }else{
+                        url = 'http://'+conf.METRICS_ENDPOINT+'query=increase('+metric+'{action="'+fname+'"}['+period+'])'
+                    }
+                }else{
+                    url = 'http://'+conf.METRICS_ENDPOINT+'query=rate('+metric+'{action="'+fname+'"}['+period+'])'
+                }
+
+                const rawResponse = await fetch(url,{
                 method: 'GET',
                 headers: {
                     'Authorization':'Basic '+ btoa(conf.API_KEY)
@@ -635,7 +466,7 @@ function getMetricsByFuncName(fname){
                     logger.log(err,"WARN");
                     return -1;
                 });
-            
+
                 if(rawResponse == -1) return rawResponse;
                 const res =  await rawResponse.json();
             
@@ -648,210 +479,29 @@ function getMetricsByFuncName(fname){
                 }else{
                     return -1;
                 }
-            
-            })()
-        )
-    });
-
-    return Promise.all(metrics_promise).then((metrics_collect)=>{
-        response.duration = metrics_collect[1] > 0 ? (metrics_collect[0]/metrics_collect[1])*1000:0;
-        response.waitTime = metrics_collect[3] > 0 ? (metrics_collect[2]/metrics_collect[3])*1000:0;
-        response.initTime = metrics_collect[5] > 0 ? (metrics_collect[4]/metrics_collect[5])*1000:0;
-        logger.log("Retrieved duration,waitTime,initTime metrics for action : " +fname,"info");
-        logger.log(JSON.stringify(response),"info");
-        return response;
-    });
-    
-}
-
-function getMetricsByFuncNameCB(fname,cb){
-
-
-    /*
-         c'è da considerare che, se di una funzione vengono fatte poche invocazioni, si potrebbe incappare in "cold_starts" , quindi come paramentro di 
-         misura andrebbe anche considerato che se una funzione viene chiamata poco e i cold starts sono pesanti a livello di performance è conveniente fonderle
- 
-         se invece le invocazioni sono molte, il cold start può essere ignorato
- 
- 
- 
-         se cold start -> considera l'initTime delle funzioni 
- 
-         anche se magari le metriche sono favorevoli per duration e waitTime, il cold start può fare la differenza se le invocazioni sono poche 
-         -> ovviamente rateo di invocazioni "invocazioni/timePeriod"
-    */
- 
- 
- 
-    var response = {"duration":"","waitTime":"","initTime":""};
-    const metrics = conf.metrics;
-    var metrics_collect= [];
-    let metrics_promise = [];
-    metrics.forEach(metric => {
-    metrics_promise.push(
-        (async () => {
-            const rawResponse = await fetch('http://'+conf.METRICS_ENDPOINT+'query=rate('+metric+'{action="'+fname+'"}[1d])',{
-            method: 'GET',
-            headers: {
-                'Authorization':'Basic '+ btoa(conf.API_KEY)
-            }
-            }).catch(err =>{
-                logger.log(err,"WARN");
-                return -1;
-            });
-        
-            const res = await rawResponse.json();
-        
-            if(Object.keys(res).includes("data")){
-                if(res.data.result.length < 1){
-                    return 0;
-                }else{
-                    return Number.parseFloat(res.data.result[0].value[1]).toFixed(9);
-                }
-            }else{
-                return -1;
-            }
-        
-        })()
-    )
-    });
- 
-    Promise.all(metrics_promise).then((result)=>
-        metrics_collect = result
-    ).then(()=>{
-        response.duration = metrics_collect[1] > 0 ? (metrics_collect[0]/metrics_collect[1])*1000:0;
-        response.waitTime = metrics_collect[3] > 0 ? (metrics_collect[2]/metrics_collect[3])*1000:0;
-        response.initTime = metrics_collect[5] > 0 ? (metrics_collect[4]/metrics_collect[5])*1000:0;
-        logger.log("Retrieved duration,waitTime,initTime metrics for action : " +fname,"info");
-        logger.log(JSON.stringify(response),"info");
-        cb(response);
-    })
- }
-
-function getMetricsByFuncNameAndPeriod(fname,period){
-
-
-    /*
-         c'è da considerare che, se di una funzione vengono fatte poche invocazioni, si potrebbe incappare in "cold_starts" , quindi come paramentro di 
-         misura andrebbe anche considerato che se una funzione viene chiamata poco e i cold starts sono pesanti a livello di performance è conveniente fonderle
- 
-         se invece le invocazioni sono molte, il cold start può essere ignorato
- 
- 
- 
-         se cold start -> considera l'initTime delle funzioni 
- 
-         anche se magari le metriche sono favorevoli per duration e waitTime, il cold start può fare la differenza se le invocazioni sono poche 
-         -> ovviamente rateo di invocazioni "invocazioni/timePeriod"
-    */
- 
- 
- 
-    var response = {"duration":"","waitTime":"","initTime":""};
-    const metrics = conf.metrics;
-    let metrics_promise = [];
-    
-    metrics.forEach(metric => {
-        metrics_promise.push(
-            (async () => {
-                const rawResponse = await fetch('http://'+conf.METRICS_ENDPOINT+'query=rate('+metric+'{action="'+fname+'"}['+period+'])',{
-                method: 'GET',
-                headers: {
-                    'Authorization':'Basic '+ btoa(conf.API_KEY)
-                }
-                }).catch(err =>{
-                    logger.log(err,"WARN");
-                    return -1;
-                });
-                if(rawResponse == -1) return rawResponse;
-                const res =  await rawResponse.json();
-            
-                if(Object.keys(res).includes("data")){
-                    if(res.data.result.length < 1){
-                        return 0;
-                    }else{
-                        return Number.parseFloat(res.data.result[0].value[1]).toFixed(9);
-                    }
-                }else{
-                    return -1;
-                }
-                
-            
             })()
         )
     })
 
     return Promise.all(metrics_promise).then((metrics_collect)=>{
-
         response.duration = metrics_collect[1] > 0 ? (metrics_collect[0]/metrics_collect[1])*1000:0;
         response.waitTime = metrics_collect[3] > 0 ? (metrics_collect[2]/metrics_collect[3])*1000:0;
         response.initTime = metrics_collect[5] > 0 ? (metrics_collect[4]/metrics_collect[5])*1000:0;
-        logger.log("Retrieved duration,waitTime,initTime metrics for action : " +fname,"info");
+        response.activations = metrics_collect[6] ;
+        response.coldStarts = metrics_collect[7]
+
+        logger.log("Retrieved duration,waitTime,initTime,activations,coldStarts metrics for action : " +fname,"info");
         logger.log(JSON.stringify(response),"info");
         return response;
     });
 }
 
-function getMetricsByFuncNameAndPeriodCB(fname,period,cb){
-
-
-    /*
-         c'è da considerare che, se di una funzione vengono fatte poche invocazioni, si potrebbe incappare in "cold_starts" , quindi come paramentro di 
-         misura andrebbe anche considerato che se una funzione viene chiamata poco e i cold starts sono pesanti a livello di performance è conveniente fonderle
- 
-         se invece le invocazioni sono molte, il cold start può essere ignorato
- 
- 
- 
-         se cold start -> considera l'initTime delle funzioni 
- 
-         anche se magari le metriche sono favorevoli per duration e waitTime, il cold start può fare la differenza se le invocazioni sono poche 
-         -> ovviamente rateo di invocazioni "invocazioni/timePeriod"
-    */
- 
-    var response = {"duration":"","waitTime":"","initTime":""};
-    const metrics = conf.metrics;
-    var metrics_collect= [];
-    let metrics_promise = [];
-    
-    metrics.forEach(metric => {
-        metrics_promise.push(
-            (async () => {
-                const rawResponse = await fetch('http://'+conf.METRICS_ENDPOINT+'query=rate('+metric+'{action="'+fname+'"}['+period+'])',{
-                method: 'GET',
-                headers: {
-                    'Authorization':'Basic '+ btoa(conf.API_KEY)
-                }
-                }).catch(err =>{
-                    logger.log(err,"WARN");
-                    return -1;
-                });
-                const res = await rawResponse.json();
-
-                if(Object.keys(res).includes("data")){
-                    if(res.data.result.length < 1){
-                        return 0;
-                    }else{
-                        return Number.parseFloat(res.data.result[0].value[1]).toFixed(9);
-                    }
-                }else{
-                    return -1;
-                }
-            })()
-        )
-    })
-        
-
-    Promise.all(metrics_promise).then((result)=>
-        metrics_collect = result
-    ).then(()=>{
-        response.duration = metrics_collect[1] > 0 ? (metrics_collect[0]/metrics_collect[1])*1000:0;
-        response.waitTime = metrics_collect[3] > 0 ? (metrics_collect[2]/metrics_collect[3])*1000:0;
-        response.initTime = metrics_collect[5] > 0 ? (metrics_collect[4]/metrics_collect[5])*1000:0;
-        logger.log("Retrieved duration,waitTime,initTime metrics for action : " +fname+ " and period: "+period,"info");
-        logger.log(JSON.stringify(response),"info");
-        cb(response);
-    }) 
-}
-
-export {invokeAction,getAction,deleteAction,createAction,invokeActionWithParams,deleteActionCB,getMetricsByFuncName,parseFunction,createActionCB,getMetricsByFuncNameAndPeriod,getMetricsByFuncNameAndPeriodCB,getMetricsByFuncNameCB};
+export {
+        getAction,
+        invokeActionWithParams,
+        deleteActionCB,
+        parseFunction,
+        createActionCB,
+        getMetricsByFuncNameAndPeriod,
+        listActionsCB
+    };
