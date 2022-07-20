@@ -36,9 +36,22 @@
                 "openwhisk_action_initTime_seconds_count",
                 "openwhisk_action_status",
                 "openwhisk_action_coldStarts_total"
-            ]
+            ],
+        "system":{
+            "limits":{
+                "memory":256, 
+                "timeout":60, 
+                "concurrency":1
+            }
+        }
     },
     "default":{
         "port":"4000"            
+    },
+    "simulation":true,
+    "kafka":{
+        "endpoint":"http://localhost:9092/",
+        "topic":"TEST",
+        "boostrap_server":"localhost:9092"
     }
 }

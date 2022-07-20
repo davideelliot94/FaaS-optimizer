@@ -3,8 +3,8 @@ import * as fs from 'fs';
 import path from "path";
 import os from 'os';
 import child_process from "child_process";
-import { ifError } from "assert";
 
+import * as Metric from "../metrics/Metric.js"
 
 const __dirname = path.resolve();
 
@@ -521,7 +521,39 @@ function copyAllFiles(extracted,binaries,main_name){
 function applyMergePolicies(funcs_with_metrics,callback){
 
     let i = 0;
+    var sequenceDuration = 0;
+    var condActionDuration = 0; // devo farmi passare anche la sequence per prendere questo valore Dseq + WTseq
+    var coldStartsRate = 0;
+    var coldStartAvgDuration = 0;
     funcs_with_metrics.forEach(f =>{
+
+        if(f.metrics.duration < f.metrics.waitTime){
+            f.to_merge = true;
+        }
+
+        sequenceDuration += f.metrics.duration + f.metrics.waitTime;
+
+        if(f.asynch){
+            f.to_merge = false
+        }
+
+
+        if(f.metrics.coldStarts > 0)  {
+            coldStartAvgDuration += f.metrics.waitTime;
+            coldStartsRate = f.metrics.coldStarts/f.metrics.activations;
+            //coldStartsRate = f.metrics.coldStartsRate
+            if(coldStartsRate > 0.4){
+                f.to_merge = true
+            }
+        }
+
+        
+
+
+
+
+
+
         if(i <= 1) {
             f.to_merge = true;
             i++;
@@ -541,6 +573,8 @@ function applyMergePolicies(funcs_with_metrics,callback){
             }
         }*/
     })
+
+    coldStartAvgDuration/funcs_with_metrics.length;
 
     /**
      * 
@@ -574,7 +608,6 @@ function checkPartialMerges(functions_array){
         index++;
     }
     return parsed_func_array;
-
 }
 
 export {   

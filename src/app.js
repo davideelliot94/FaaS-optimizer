@@ -1,12 +1,15 @@
 import fs from "fs";
+import express from 'express';
+import { fstat } from "fs";
+
 import * as utils from "./utils/utils.js";
 import * as fg from "./ow/action_gestures.js";
 import * as zipgest from "./utils/zip_gestures.cjs";
 import * as logger from "./log/logger.cjs";
-import express from 'express';
-import fetch from 'node-fetch';
 import * as conf from '../config/conf.cjs';
-import { fstat } from "fs";
+import {producer} from "./kafka/Kafka.cjs";
+
+
 
 
 const app = express();
@@ -52,8 +55,7 @@ app.post("/api/v1/action/merge", (req, res) => {
                             return 0;
                         }
                         const timestamp = Date.now();
-
-                        var parsed = fg.parseFunction(result, timestamp,binaries_timestamp);
+                        var parsed = fg.parseAction(result, timestamp,binaries_timestamp);
                         return parsed;
 
 
@@ -88,6 +90,7 @@ app.post("/api/v1/action/merge", (req, res) => {
             var counter = 0;
             const prevKind = funcs[0].kind;
             var merged_seq_limits = funcs[0].limits
+
             var binary_count = funcs[0].binary ? 1:0;
             for (let index = 1; index < funcs.length; index++) {
 
@@ -162,6 +165,179 @@ app.post("/api/v1/action/merge", (req, res) => {
     });
 });
 
+
+app.post("/api/v1/action/optimize", async (req, res) => {
+
+    logger.log("/api/v1/action/optimize", "info");
+    var funcs = [];
+    const sequenceName = req.body.name;
+    const binaries_timestamp = Date.now();
+    var period = null;
+
+    if (Object.keys(req.body).includes("period")) {
+        period = "/" + req.body.period + "/";
+    }
+
+    const result = await fg.getAction(sequenceName);
+    var promises = [];
+
+    if (Object.keys(result).includes("error")) {
+        logger.log("Error getting sequence: " + sequenceName, "warn");
+        logger.log(JSON.stringify(result), "warn");
+        res.json(result);
+        return;
+    };
+
+    if(!Object.keys(result).includes("exec")){
+        logger.log("Error getting sequence: " + sequenceName, "warn");
+        logger.log(JSON.stringify(result), "warn");
+        res.json(result);
+        return;
+    }
+
+    if(!Object.keys(result.exec).includes("components")){
+        res.json("Seems like the provided function is not a sequence");
+        return;
+    }
+
+    result.exec.components.forEach(funcName => {
+
+        var tmp = funcName.split('/');
+        promises.push(
+
+            fg.getAction(tmp[tmp.length - 1])
+                .then((result) => {
+
+                    if (Object.keys(result.exec).includes("components")) {
+
+                        return 0;
+                    }
+
+                    const timestamp = Date.now();
+                    var parsed = fg.parseAction(result, timestamp,binaries_timestamp);
+                    return parsed;
+
+                }).catch((error) => {
+                    logger.log(error, "error");
+                    res.json(error);
+                    return -1;
+                })
+        );
+    });
+
+    Promise.all(promises).then((result) => {
+        result.forEach((r) => {
+            funcs.push({ "function": r, "metrics": {}, "to_merge": false })
+            //funcs.push(r)
+
+        })
+    }).then(async () => {
+
+        if (funcs.length < 2) {
+            res.json({ mex: "An error occurred parsing functions, check if provided function is a sequence" });
+            return;
+        }
+
+        let sub_seq_detected = false;
+        let i = 0;
+        for (i; i < funcs.length - 1; i++) {
+            //if (funcs[i] == 0) {
+            if (funcs[i].function == 0) {
+                sub_seq_detected = true;
+                break;
+            }
+        }
+
+        if (sub_seq_detected) {
+            logger.log("Sub-sequence detected", "info")
+            res.json({ mex: "Sub-sequence detected, atm is not possible to optimizer sequence containing sub sequences!" })
+            return;
+        }
+
+        const funcWithMetrics = funcs.map(async func => {
+
+            if (period === null) period = '1d';
+            const metricsRaw = await fg.getMetricsByActionNameAndPeriod(func.function.name,period);
+            //func.setMetrics(metricsRaw)
+            func.metrics = metricsRaw;
+            return func;
+
+        })
+        const resolvedfuncWithMetrics = await Promise.all(funcWithMetrics);
+
+        utils.applyMergePolicies(resolvedfuncWithMetrics, async function (tmp_to_merge) {
+
+            /**
+             * CICLO PER VERIFICARE SE IL MERGE SARA TOTALE O PARZIALE
+             */
+
+            const sub_seq_array = utils.checkPartialMerges(tmp_to_merge);
+
+            if(sub_seq_array.length === tmp_to_merge.length){
+                res.json("The sequence provided doesn't need to be optimized")
+            }
+
+            if(sub_seq_array.length == 1){
+                await merge(sub_seq_array[0],sequenceName,true)
+                res.json("Sequence successfully merged!!")
+                return;
+            }else{
+
+                var prom = []
+                sub_seq_array.forEach(sub_seq => {
+                    if(sub_seq.length > 1){
+                        prom.push(
+                            merge(sub_seq,sequenceName,false)
+                        )
+                    }else{
+                        prom.push([sub_seq[0].function.name,sub_seq[0].function.limits])
+                        //prom.push([sub_seq[0])
+
+                    }
+                });
+
+                const resolve_sub_seq_array_parsed = await Promise.all(prom);
+
+                var final_limit = resolve_sub_seq_array_parsed[0][1];
+                //var final_limit = resolve_sub_seq_array_parsed[0].limits;
+
+                var seq_names_array = [];
+                seq_names_array.push("/_/" + resolve_sub_seq_array_parsed[0][0]);
+                //seq_names_array.push("/_/" + resolve_sub_seq_array_parsed[0].name);
+
+                for (let l = 1; l < resolve_sub_seq_array_parsed.length -1; l++) {
+                    const limit = resolve_sub_seq_array_parsed[l][1];
+                    //const limit = resolve_sub_seq_array_parsed[l].limits;
+
+                    seq_names_array.push("/_/" + resolve_sub_seq_array_parsed[l][0])
+                    final_limit.concurrency = final_limit.concurrency >= limit.concurrency ? 
+                    final_limit.concurrency:limit.concurrency
+
+                    final_limit.logs = final_limit.logs >= limit.logs ? 
+                    final_limit.logs:limit.logs;
+
+                    final_limit.memory = final_limit.memory >= limit.memory ? 
+                    final_limit.memory:limit.memory;
+
+                    final_limit.timeout = final_limit.timeout >= limit.timeout ? 
+                    final_limit.timeout:limit.timeout;   
+                }
+
+                fg.deleteActionCB(sequenceName, function (data) {
+                    //CREA LA NUOVA SEQUENZA
+                    fg.createActionCB(sequenceName, seq_names_array,"sequence", "sequence", final_limit,function (last_result) {
+                        res.json({ "mex": "Functions partially merged","composition":last_result});
+                    });
+                })
+            }  
+        })     
+    })
+    .catch(err => {
+        logger.log(err, "WARN")
+        res.json(err);
+    }); 
+});
+
 app.post("/api/v1/action/optimize-no-part-seq", async (req, res) => {
 
     logger.log("/api/v1/action/optimize-no-part-seq", "info");
@@ -203,7 +379,7 @@ app.post("/api/v1/action/optimize-no-part-seq", async (req, res) => {
                     }
 
                     const timestamp = Date.now();
-                    var parsed = fg.parseFunction(result, timestamp,binaries_timestamp);
+                    var parsed = fg.parseAction(result, timestamp,binaries_timestamp);
                     return parsed;
 
                 }).catch((error) => {
@@ -246,7 +422,7 @@ app.post("/api/v1/action/optimize-no-part-seq", async (req, res) => {
                 func.metrics = metricsRaw;
 
             } else {
-                const metricsRaw = await fg.getMetricsByFuncNameAndPeriod(func.function.name, period);
+                const metricsRaw = await fg.getMetricsByActionNameAndPeriod(func.function.name, period);
                 func.metrics = metricsRaw;
 
             }
@@ -340,9 +516,9 @@ app.post("/api/v1/action/optimize-no-part-seq", async (req, res) => {
     });
 });
 
-app.post("/api/v1/action/optimize", async (req, res) => {
+app.post("/api/v1/action/optimize/sim", async (req, res) => {
 
-    logger.log("/api/v1/action/optimize", "info");
+    logger.log("/api/v1/action/optimize/sim", "info");
     var funcs = [];
     const sequenceName = req.body.name;
     const binaries_timestamp = Date.now();
@@ -374,6 +550,8 @@ app.post("/api/v1/action/optimize", async (req, res) => {
         return;
     }
 
+    const seq_limits = result.limits
+
     result.exec.components.forEach(funcName => {
 
         var tmp = funcName.split('/');
@@ -388,7 +566,7 @@ app.post("/api/v1/action/optimize", async (req, res) => {
                     }
 
                     const timestamp = Date.now();
-                    var parsed = fg.parseFunction(result, timestamp,binaries_timestamp);
+                    var parsed = fg.parseAction(result, timestamp,binaries_timestamp);
                     return parsed;
 
                 }).catch((error) => {
@@ -402,6 +580,8 @@ app.post("/api/v1/action/optimize", async (req, res) => {
     Promise.all(promises).then((result) => {
         result.forEach((r) => {
             funcs.push({ "function": r, "metrics": {}, "to_merge": false })
+            //funcs.push(r)
+
         })
     }).then(async () => {
 
@@ -413,6 +593,7 @@ app.post("/api/v1/action/optimize", async (req, res) => {
         let sub_seq_detected = false;
         let i = 0;
         for (i; i < funcs.length - 1; i++) {
+            //if (funcs[i] == 0) {
             if (funcs[i].function == 0) {
                 sub_seq_detected = true;
                 break;
@@ -428,12 +609,16 @@ app.post("/api/v1/action/optimize", async (req, res) => {
         const funcWithMetrics = funcs.map(async func => {
 
             if (period === null) period = '1d';
-            const metricsRaw = await fg.getMetricsByFuncNameAndPeriod(func.function.name,period);
+            const metricsRaw = await fg.getMetricsByActionNameAndPeriod(func.function.name,period);
+            //func.setMetrics(metricsRaw)
             func.metrics = metricsRaw;
             return func;
 
         })
         const resolvedfuncWithMetrics = await Promise.all(funcWithMetrics);
+
+        const message = buildKafkaMessage(resolvedfuncWithMetrics,period,seq_limits)
+        sendToKafka(message)
 
         utils.applyMergePolicies(resolvedfuncWithMetrics, async function (tmp_to_merge) {
 
@@ -461,16 +646,27 @@ app.post("/api/v1/action/optimize", async (req, res) => {
                         )
                     }else{
                         prom.push([sub_seq[0].function.name,sub_seq[0].function.limits])
+                        //prom.push([sub_seq[0])
+
                     }
                 });
+
+               
 
                 const resolve_sub_seq_array_parsed = await Promise.all(prom);
 
                 var final_limit = resolve_sub_seq_array_parsed[0][1];
+                //var final_limit = resolve_sub_seq_array_parsed[0].limits;
+
                 var seq_names_array = [];
                 seq_names_array.push("/_/" + resolve_sub_seq_array_parsed[0][0]);
+                //seq_names_array.push("/_/" + resolve_sub_seq_array_parsed[0].name);
+                //kafka_compositions.push(resolve_sub_seq_array_parsed[0])
+
+
                 for (let l = 1; l < resolve_sub_seq_array_parsed.length -1; l++) {
                     const limit = resolve_sub_seq_array_parsed[l][1];
+                    //const limit = resolve_sub_seq_array_parsed[l].limits;
                     seq_names_array.push("/_/" + resolve_sub_seq_array_parsed[l][0])
                     final_limit.concurrency = final_limit.concurrency >= limit.concurrency ? 
                     final_limit.concurrency:limit.concurrency
@@ -488,6 +684,10 @@ app.post("/api/v1/action/optimize", async (req, res) => {
                 fg.deleteActionCB(sequenceName, function (data) {
                     //CREA LA NUOVA SEQUENZA
                     fg.createActionCB(sequenceName, seq_names_array,"sequence", "sequence", final_limit,function (last_result) {
+
+                        var message = buildKafkaMessage(sub_seq_array,period,final_limit)
+                        sendToKafka(message)
+
                         res.json({ "mex": "Functions partially merged","composition":last_result});
                     });
                 })
@@ -500,118 +700,82 @@ app.post("/api/v1/action/optimize", async (req, res) => {
     }); 
 });
 
-/*
-async function mergeOld(tmp_to_merge,seq_name,whole){
-    
+app.post("api/v1/sequence/sim",async (req,res)=>{
 
-    if(!whole) seq_name = seq_name+"-part"+Date.now();
-
-    var counter = 0;
-    const prevKind = tmp_to_merge[0].function.kind;
-    var merged_seq_limits = tmp_to_merge[0].function.limits
-    var binary_count = tmp_to_merge[0].function.binary ? 1:0;
-
-    if(tmp_to_merge.length <=1){
-        return [seq_name,merged_seq_limits];
-    }
-
-    for (let index = 1; index < tmp_to_merge.length; index++) {
-
-        //COUNTER PER DETERMINARE SE TUTTE LE ACTION HANNO LO STESSO LINGUAGGIO
-        if (tmp_to_merge[index].function.kind.split(":")[0] === prevKind.split(":")[0]) {
-            counter++;
-        }
-
-        //COUNTER PER DETERMINARE SE E QUANTE FUNZIONI BINARIE CI SONO
-        if (tmp_to_merge[index].function.binary) {
-            binary_count++;
-        }
-
-        //CALCOLO DEI LIMITI PER LA NUOVA FUNZIONE MERGED
-        merged_seq_limits.concurrency = merged_seq_limits.concurrency >= tmp_to_merge[index].function.limits.concurrency ? 
-        merged_seq_limits.concurrency:tmp_to_merge[index].function.limits.concurrency
-
-        merged_seq_limits.logs = merged_seq_limits.logs >= tmp_to_merge[index].function.limits.logs ? 
-        merged_seq_limits.logs:tmp_to_merge[index].function.limits.logs;
-
-        merged_seq_limits.memory = merged_seq_limits.memory >= tmp_to_merge[index].function.limits.memory ? 
-        merged_seq_limits.memory:tmp_to_merge[index].function.limits.memory;
-
-        merged_seq_limits.timeout = merged_seq_limits.timeout >= tmp_to_merge[index].function.limits.timeout ? 
-        merged_seq_limits.timeout:tmp_to_merge[index].function.limits.timeout;
-
-    }
-
+    logger.log("/api/v1/action/optimize", "info");
     var funcs = [];
-    tmp_to_merge.forEach(fm=>{
-        funcs.push(fm.function);
-    });
+    const sequenceName = req.body.name;
+    var period = null;
 
-    if (counter == funcs.length -1) { 
-
-        // le functions hanno tutte le stessa Kind (linguaggio) posso fonderle come plain text
-        if (binary_count > 0) {
-            // almeno una binaria 
-            utils.mergeFuncsBinarySameLangCB(funcs, seq_name,binaries_timestamp, function (timestamp_folder) {
-                zipgest.zipDirLocalCB("binaries/" + timestamp_folder, (file) => {
-                    const size = zipgest.getFileSize("binaries/" + timestamp_folder+ ".zip");
-
-                    fg.createActionCB(seq_name, file, prevKind,"binary",merged_seq_limits, function (result) {
-                        zipgest.cleanDirs("/binaries/" + timestamp_folder);
-                        zipgest.cleanDirs("/binaries/" + timestamp_folder + ".zip");
-                        return [seq_name,merged_seq_limits];
-                    });
-                })
-            })
-
-        } else {
-            // solo plain text
-            utils.mergePlainTextFuncs(funcs, function (wrappedFunc) {
-                if(whole){
-                    fg.deleteActionCB(seq_name, function (data) {
-                        fg.createActionCB(seq_name, wrappedFunc, prevKind,"plain",merged_seq_limits, function (result) {
-                            return [seq_name,merged_seq_limits];
-                        });
-                    });
-                }else{
-                    fg.createActionCB(seq_name, wrappedFunc, prevKind,"plain",merged_seq_limits, function (result) {
-                        return [seq_name,merged_seq_limits];
-                    });  
-                }         
-            });
-        }        
-    } else {
-
-        //le functions non hanno tutte le stessa Kind (linguaggio) devo fonderle come binary ( zip file )
-        //LA FUNZIONE FA IL MERGE DI FUNZIONI DI LUNGUAGGIO DIVERSO MA NON DI FUNZIONI 
-        //PLAIN TEXT CON FUNZIONI BINARIE
-
-        utils.mergeFuncsDiffLangPlainTextBinary(funcs, seq_name,binaries_timestamp, function (timestamp_folder) {
-            zipgest.zipDirLocalCB("binaries/" + timestamp_folder, (file) => {
-                const size = zipgest.getFileSize("binaries/" + timestamp_folder+ ".zip");
-                if(whole){
-                    fg.deleteActionCB(seq_name, function (data) {
-                        fg.createActionCB(seq_name, file,"nodejs:default" ,"binary",merged_seq_limits, function (result) {
-            
-                            zipgest.cleanDirs("/binaries/" + timestamp_folder);
-                            zipgest.cleanDirs("/binaries/" + timestamp_folder + ".zip");
-                            return [seq_name,merged_seq_limits];
-                        });
-                    })
-                }else{
-                    fg.createActionCB(seq_name, file,"nodejs:default" ,"binary",merged_seq_limits, function (result) {
-        
-                        zipgest.cleanDirs("/binaries/" + timestamp_folder);
-                        zipgest.cleanDirs("/binaries/" + timestamp_folder + ".zip");
-                        return [seq_name,merged_seq_limits];
-                    }); 
-                }
-                
-            })
-        });       
-        
+    if (Object.keys(req.body).includes("period")) {
+        period = "/" + req.body.period + "/";
     }
-}*/
+
+    const result = await fg.getAction(sequenceName);
+    var promises = [];
+
+    if (Object.keys(result).includes("error")) {
+        logger.log("Error getting sequence: " + sequenceName, "warn");
+        logger.log(JSON.stringify(result), "warn");
+        res.json(result);
+        return;
+    };
+
+    if(!Object.keys(result).includes("exec")){
+        logger.log("Error getting sequence: " + sequenceName, "warn");
+        logger.log(JSON.stringify(result), "warn");
+        res.json(result);
+        return;
+    }
+
+    if(!Object.keys(result.exec).includes("components")){
+
+        if (period === null) period = '1d';
+        var func = {"name":sequenceName,"metrics":{}}
+        const metricsRaw = await fg.getMetricsByActionNameAndPeriod(func.name,period);
+        func.metrics = metricsRaw;
+    }else{
+
+        funcs.push({"name":sequenceName,"metrics":{}});
+        result.exec.components.forEach(element => {
+            funcs.push({"name":element,"metrics":{}});
+        });
+
+        
+
+    
+        const funcWithMetrics = funcs.map(async func => {
+    
+            if (period === null) period = '1d';
+            const metricsRaw = await fg.getMetricsByActionNameAndPeriod(func.name,period);
+            func.metrics = metricsRaw;
+            return func;
+        })
+    
+        const resolvedfuncWithMetrics = await Promise.all(funcWithMetrics);
+
+    }
+
+    //crea file config per provare con il simuilatore  a partire da resolvedfuncWithMetrics
+
+    /**
+     * MI SERVONO IN REALTA:
+     * 
+     *  - CONCORRENZA MAX E MIN
+     *  - INTERTEMPI DI ARRIVO DELLE FUNZIONI 
+     *  - LUNGHEZZA DELLA SEQUENZA
+     *  - CONDUCTION ACTION DURATION STIMATA COME = SEQ_DURATION+WAIT_TIME/ ACTIVATIONS
+     *  - COLD_START DURATION:
+     *      - SE NON CI SONO COLD_START = 0s
+     *      - SE CI SONO FAI LA MEDIA DEI WAIT_TIME
+     * 
+     *  - SIMULATION STOP TIME = TEMPO CHE SCELGO PER RACCOGLIERE LE METRICHE,
+     *    CERCO DI FARE 5 min MASSIMO
+     */
+    var ls = child_process.execSync('(cd ../../faas-sim; sbt "run config.properties" )').toString();
+
+    console.log(ls)
+});
 
 app.get("/api/v1/action/list", (req, res) => {
 
@@ -669,7 +833,7 @@ app.post("/api/v1/metrics/get", async (req, res) => {
     logger.log("/api/v1/metrics/get", "info");
     let p = req.body.period;
     if (p === null || p === undefined) p = "1d";
-    const response = await fg.getMetricsByFuncNameAndPeriod(req.body.name, p);
+    const response = await fg.getMetricsByActionNameAndPeriod(req.body.name, p);
 
     response.duration = response.duration + " ms";
     response.waitTime = response.waitTime + " ms";
@@ -678,12 +842,11 @@ app.post("/api/v1/metrics/get", async (req, res) => {
 
 });
 
-
 /**
  * FUNZIONE CHE PRENDE UN ARRAY DI ACTION E NE FA IL MERGE  
  */
 
- async function merge(tmp_to_merge,seq_name,whole){
+async function merge(tmp_to_merge,seq_name,whole){
     return new Promise(function(resolve, reject) {
 
         if(!whole) seq_name = seq_name+"-part"+Date.now();
@@ -795,5 +958,105 @@ app.post("/api/v1/metrics/get", async (req, res) => {
         }
     });
 }
+
+async function sendToKafka(message){
+
+    try {
+        const responses = await producer.send({
+          topic: conf.KAFKA_TOPIC,
+          messages: [{
+            // Name of the published package as key, to make sure that we process events in order
+            key: message,
+    
+            // The message value is just bytes to Kafka, so we need to serialize our JavaScript
+            // object to a JSON string. Other serialization methods like Avro are available.
+            value: JSON.stringify({
+              package: message,
+              version: 1
+            })
+          }]
+        })
+        logger.log("Published configuration",{ responses })
+      } catch (error) {
+        logger.log('Error publishing message', "error")
+      }
+}
+
+function buildKafkaMessage(functions,period,limit,condAction){
+
+    var p = 0
+
+    if(period.includes("d")){
+        p = period.substring(0, period.length -1)*24*60*60
+    }
+    if(period.includes("h")){
+        p = period.substring(0, period.length -1)*60*60
+    }
+    if(period.includes("m")){
+        p = period.substring(0, period.length -1)*60
+    }
+    if(period.includes("s")){
+        p = period.substring(0, period.length -1)
+    }       
+
+    var avgColdStartRate = 0.0;
+    var avgColdStartDuration = 0.0
+    var message = {
+                    "names":[], // array  of string names of funcs
+                    "compositions" : [], // array of string , combination -> "F1,F2,F3" , single -> "F4"
+                    "functions":[],// functions entry   {"name":"F1","arrivalRate":},
+                    "funcsNumber": 0,// int
+                    "seqNumber":0,// int
+                    "condActionDuration":0, //double seqDuration+ seqWaitTime/seqLen
+                    "avgColdStartRate":0 ,// double
+                    "avgColdStartDuration":20,//double
+                    "stopTime":360, // int
+                    "cpus":4,//int
+                    "mem":10000, // int
+                    "num":1, //Int
+                    "maxParallelism":limit.concurrency,//Int
+                    "minParallelism":0 //Int
+                }
+
+    functions.forEach(funcs => {
+        if(funcs.length > 1){
+            message.compositions.push(String(funcs))
+            funcs.forEach(func => {
+                message.names.push(func.function.name)
+                message.functions.push({
+                                        "name":func.function.name,
+                                        "arrivalRate":func.metrics.arrivalRate,
+                                        "avgDuration":func.metrics.duration
+                                        })  
+                avgColdStartRate += func.metrics.coldStartsRate
+                avgColdStartDuration += func.metrics.avgColdStartDuration
+            })
+        }else{
+            message.names.push(funcs[0].function.name)
+            message.compositions.push(funcs[0].function.name)
+            message.functions.push({
+                                    "name":funcs[0].function.name,
+                                    "arrivalRate":funcs[0].metrics.arrivalRate,
+                                    "avgDuration":funcs[0].metrics.duration
+                                    })  
+            avgColdStartRate += funcs[0].metrics.coldStartsRate
+            avgColdStartDuration += funcs[0].metrics.avgColdStartDuration
+        
+        }
+    });
+    message.funcsNumber = functions.length
+    message.seqNumber = message.compositions.length
+    message.avgColdStartRate = avgColdStartRate/functions.length
+    message.avgColdStartDuration = avgColdStartDuration/functions.length
+    console.log("buildKafkaMessage")
+    console.log(JSON.stringify(message))
+
+    return message;
+}
+    
+
+
+
+
 
 export default app;

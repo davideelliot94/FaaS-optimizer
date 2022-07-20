@@ -5,7 +5,9 @@ import * as logger from "../log/logger.cjs";
 import fetch from 'node-fetch';
 import * as utils from "../utils/utils.js";
 import * as zipgest from "../utils/zip_gestures.cjs"
+import * as Metric from "../metrics/Metric.js"
 const httpsAgent = conf.httpsAgent;
+
 
 const __dirname = path.resolve();
 
@@ -215,7 +217,7 @@ async function getAction(funcName){
     
 }
 
-async function parseFunction(element,timestamp,binaries_timestamp){
+async function parseAction(element,timestamp,binaries_timestamp){
 
     logger.log("Parsing function","info");
 
@@ -230,11 +232,7 @@ async function parseFunction(element,timestamp,binaries_timestamp){
         fs.mkdirSync(dirPath, { recursive: true });
         fs.writeFileSync(zipPath, buff);
         await zipgest.extractZipLocal(timestamp);
-       
-        //var func = utils.getMainFileBinary(timestamp); 
 
-        
-        //zipgest.cleanDirs("/zip_workdir/extracted/"+timestamp);
         var kind = element.exec.kind;
 
         
@@ -273,6 +271,27 @@ async function parseFunction(element,timestamp,binaries_timestamp){
 
             //devo aggiungere una variabile a "invokation" per evitare duplicati nelle funzioni con stesso nome 
 
+            
+/*
+            var limit = new Limits(
+                                element.limits.concurrency,
+                                element.limits.logs,
+                                element.limits.memory,
+                                element.limits.timeout        
+                                )
+
+            const action = new Action(
+                                element.name,
+                                func.replace(" "+main_func+"("," "+element.name +timestamp+"("),
+                                element.name +timestamp+"(",
+                                main_func_invocation.substring(main_func_invocation.indexOf(main_func+"(")+main_func.length + 1,main_func_invocation.indexOf(")")),
+                                true,
+                                (pack.dependencies === undefined || pack.dependencies === null )? "" :pack.dependencies,
+                                kind,
+                                false,
+                                limit
+                            )*/
+
             var tmp = {
                 "name": element.name, //string
                 "code":func.replace(" "+main_func+"("," "+element.name +timestamp+"("),
@@ -288,7 +307,8 @@ async function parseFunction(element,timestamp,binaries_timestamp){
             
             if(tmp.code.includes("async ") || tmp.code.includes(" Promise") || tmp.code.includes(".then(")){
                 tmp.asynch = true;
-            }
+                // action.setAsync(true)
+            }          
             
             /*
             if(file_list.length > 0){
@@ -301,6 +321,8 @@ async function parseFunction(element,timestamp,binaries_timestamp){
             */
 
             return tmp;
+
+            //return action;
         }
 
 
@@ -329,6 +351,27 @@ async function parseFunction(element,timestamp,binaries_timestamp){
                 main_func = "main"
             }
 
+            /*
+            var limit = new Limits(
+                                element.limits.concurrency,
+                                element.limits.logs,
+                                element.limits.memory,
+                                element.limits.timeout        
+                                )
+
+            const action = new Action(
+                                element.name,
+                                func.replace(" "+main_func+"("," "+element.name +timestamp+"("),
+                                element.name + timestamp+"(",
+                                func.substring(func.indexOf(main_func+"(") +main_func.length+ 1, func.indexOf(")")),
+                                true,
+                                null,
+                                kind,
+                                false,
+                                limit
+                            )*/
+
+
             var tmp = {
                 "name": element.name, //string
                 "code": func.replace(" "+main_func+"("," "+element.name +timestamp+"("),
@@ -343,7 +386,10 @@ async function parseFunction(element,timestamp,binaries_timestamp){
 
             if(tmp.code.includes("async ") || tmp.code.includes(" await ")){
                 tmp.asynch = true;
+                //action.setAsync(true)
             }
+
+            
 
             /*
             if(file_list.length > 0){
@@ -353,6 +399,7 @@ async function parseFunction(element,timestamp,binaries_timestamp){
             }
             */
             return tmp;
+            //return action;
         }     
      
     }
@@ -380,6 +427,26 @@ async function parseFunction(element,timestamp,binaries_timestamp){
                 main_func_invocation = func.substring(func.indexOf(main_func))
             }
 
+            /*
+            var limit = new Limits(
+                                element.limits.concurrency,
+                                element.limits.logs,
+                                element.limits.memory,
+                                element.limits.timeout        
+                                )
+
+            const action = new Action(
+                                element.name,
+                                func.replace(" "+main_func+"("," "+element.name +timestamp+"("),
+                                element.name +timestamp+ "(",
+                                main_func_invocation.substring(main_func_invocation.indexOf(main_func+"(")+main_func.length + 1,main_func_invocation.indexOf(")")),
+                                false,
+                                null,
+                                kind,
+                                false,
+                                limit
+                            )*/
+
             var func = element.exec.code;
             var tmp = {
                 "name": element.name, //string
@@ -398,9 +465,12 @@ async function parseFunction(element,timestamp,binaries_timestamp){
             
             if(tmp.code.includes("async ") || tmp.code.includes(" Promise") || tmp.code.includes(".then(")){
                 tmp.asynch = true;
+                //action.setAsync(true)
             }
 
             return tmp;
+            //return action;
+
         }
 
         //devo controllare come funziona per il main se python
@@ -414,6 +484,26 @@ async function parseFunction(element,timestamp,binaries_timestamp){
             }else{
                 main_func = "main"
             }
+
+            /*
+            var limit = new Limits(
+                                element.limits.concurrency,
+                                element.limits.logs,
+                                element.limits.memory,
+                                element.limits.timeout        
+                                )
+
+            const action = new Action(
+                                element.name,
+                                func.replace(" "+main_func+"("," "+element.name +timestamp+"("),
+                                element.name +timestamp+ "(",
+                                main_func_invocation.substring(main_func_invocation.indexOf(main_func+"(")+main_func.length + 1,main_func_invocation.indexOf(")")),
+                                false,
+                                null,
+                                kind,
+                                false,
+                                limit
+                            )*/
 
             var func = element.exec.code;
             var tmp = {
@@ -430,17 +520,18 @@ async function parseFunction(element,timestamp,binaries_timestamp){
 
             if(tmp.code.includes("async ") || tmp.code.includes(" await ")){
                 tmp.asynch = true;
+                //action.setAsync(true)
             }
-
             return tmp;
+            //return action;
         } 
     }
 }
 
-async function getMetricsByFuncNameAndPeriod(fname,period){ 
+async function getMetricsByActionNameAndPeriod(fname,period){ 
  
-    var response = {"duration":"","waitTime":"","initTime":"","activations":"","coldStarts":""};
-    const metrics = conf.metrics;
+    var response = {"duration":0.0,"waitTime":0.0,"initTime":0.0,"activations":0,"coldStarts":0,"arrivalRate":0.0,"coldStartsRate":0.0,"coldStartsDuration":0.0};
+    const metrics = conf.METRICS;
     let metrics_promise = [];
     
     metrics.forEach(metric => {
@@ -470,7 +561,7 @@ async function getMetricsByFuncNameAndPeriod(fname,period){
                 if(rawResponse == -1) return rawResponse;
                 const res =  await rawResponse.json();
             
-                if(Object.keys(res).includes("data")){
+                if(Object.keys(res).includes("data")){// dovro controllare quando prendo le time series
                     if(res.data.result.length < 1){
                         return 0;
                     }else{
@@ -488,7 +579,25 @@ async function getMetricsByFuncNameAndPeriod(fname,period){
         response.waitTime = metrics_collect[3] > 0 ? (metrics_collect[2]/metrics_collect[3])*1000:0;
         response.initTime = metrics_collect[5] > 0 ? (metrics_collect[4]/metrics_collect[5])*1000:0;
         response.activations = metrics_collect[6] ;
-        response.coldStarts = metrics_collect[7]
+        response.coldStarts = metrics_collect[7];
+
+        
+
+        response.arrivalRate = response.activations/p
+        response.coldStartsRate = response.coldStarts/response.activations
+        response.coldStartsDuration = response.waitTime * response.coldStartsRate
+        
+
+/*
+        const duration = metrics_collect[1] > 0 ? (metrics_collect[0]/metrics_collect[1])*1000:0;
+        const waitTime = metrics_collect[3] > 0 ? (metrics_collect[2]/metrics_collect[3])*1000:0;
+        const initTime = metrics_collect[5] > 0 ? (metrics_collect[4]/metrics_collect[5])*1000:0;
+        const activations = metrics_collect[6] ;
+        const coldStarts = metrics_collect[7];
+
+        var response = new Metric(duration,waitTime,initTime,activations,coldStarts);
+        */
+        //devo prendere tutti gli arrivi dalla time series
 
         logger.log("Retrieved duration,waitTime,initTime,activations,coldStarts metrics for action : " +fname,"info");
         logger.log(JSON.stringify(response),"info");
@@ -500,8 +609,8 @@ export {
         getAction,
         invokeActionWithParams,
         deleteActionCB,
-        parseFunction,
+        parseAction,
         createActionCB,
-        getMetricsByFuncNameAndPeriod,
+        getMetricsByActionNameAndPeriod,
         listActionsCB
     };

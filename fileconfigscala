@@ -1,0 +1,19 @@
+workload.exponential.default.rate = 3.0
+
+simulator.logger.type = console
+
+invoker.warm.timeout.sec = 600
+invoker.warm.timeout.deterministic = true
+invoker.abort.initializations = false
+invoker.reschedule.coldstarts = false
+coldstart.duration.sec = 1.0
+coldstart.duration.erlang.phases = 4
+
+function.concurrency.max = 20
+function.concurrency.min = 0
+
+scheduler.queueing.enabled = false
+
+statistics.percentiles.enabled = true
+statistics.resptimes.dumpfile =
+sim.stop.time = 3600
