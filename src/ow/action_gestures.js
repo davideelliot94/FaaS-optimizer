@@ -529,11 +529,26 @@ async function parseAction(element,timestamp,binaries_timestamp){
 }
 
 async function getMetricsByActionNameAndPeriod(fname,period){ 
- 
+
     var response = {"duration":0.0,"waitTime":0.0,"initTime":0.0,"activations":0,"coldStarts":0,"arrivalRate":0.0,"coldStartsRate":0.0,"coldStartsDuration":0.0};
     const metrics = conf.METRICS;
-    let metrics_promise = [];
-    
+    let metrics_promise = [];       
+
+    let p = 0;
+
+    if(period.includes("d")){
+        p = period.substring(0, period.length -1)*24*60*60
+    }
+    if(period.includes("h")){
+        p = period.substring(0, period.length -1)*60*60
+    }
+    if(period.includes("m")){
+        p = period.substring(0, period.length -1)*60
+    }
+    if(period.includes("s")){
+        p = period.substring(0, period.length -1)
+    }   
+
     metrics.forEach(metric => {
         metrics_promise.push(
             (async () => {

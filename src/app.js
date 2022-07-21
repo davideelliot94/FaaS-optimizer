@@ -616,8 +616,11 @@ app.post("/api/v1/action/optimize/sim", async (req, res) => {
 
         })
         const resolvedfuncWithMetrics = await Promise.all(funcWithMetrics);
+        //const seqMetrics = await fg.getMetricsByActionNameAndPeriod(sequenceName.function.name,period)
+        //const message = buildKafkaMessage(resolvedfuncWithMetrics,period,seq_limits,seqMetrics)
 
-        const message = buildKafkaMessage(resolvedfuncWithMetrics,period,seq_limits)
+
+        const message = buildKafkaMessage(resolvedfuncWithMetrics,period,seq_limits,null)
         sendToKafka(message)
 
         utils.applyMergePolicies(resolvedfuncWithMetrics, async function (tmp_to_merge) {
@@ -685,7 +688,9 @@ app.post("/api/v1/action/optimize/sim", async (req, res) => {
                     //CREA LA NUOVA SEQUENZA
                     fg.createActionCB(sequenceName, seq_names_array,"sequence", "sequence", final_limit,function (last_result) {
 
-                        var message = buildKafkaMessage(sub_seq_array,period,final_limit)
+                        //var message = buildKafkaMessage(sub_seq_array,period,final_limit,seqMetrics)
+
+                        var message = buildKafkaMessage(sub_seq_array,period,final_limit,null)
                         sendToKafka(message)
 
                         res.json({ "mex": "Functions partially merged","composition":last_result});
@@ -1002,12 +1007,10 @@ function buildKafkaMessage(functions,period,limit,condAction){
     var avgColdStartRate = 0.0;
     var avgColdStartDuration = 0.0
     var message = {
-                    "names":[], // array  of string names of funcs
-                    "compositions" : [], // array of string , combination -> "F1,F2,F3" , single -> "F4"
+                    "name":"test", // name of the configuration
                     "functions":[],// functions entry   {"name":"F1","arrivalRate":},
-                    "funcsNumber": 0,// int
-                    "seqNumber":0,// int
-                    "condActionDuration":0, //double seqDuration+ seqWaitTime/seqLen
+                    "funcsNumber": functions.length,// int
+                    "condActionDuration":condAction == null ? 0:condAction.metrics.duration/functions.length, //double seqDuration+ seqWaitTime/seqLen
                     "avgColdStartRate":0 ,// double
                     "avgColdStartDuration":20,//double
                     "stopTime":360, // int
@@ -1026,7 +1029,8 @@ function buildKafkaMessage(functions,period,limit,condAction){
                 message.functions.push({
                                         "name":func.function.name,
                                         "arrivalRate":func.metrics.arrivalRate,
-                                        "avgDuration":func.metrics.duration
+                                        "avgDuration":func.metrics.duration,
+                                        "memory":func.limits.memory
                                         })  
                 avgColdStartRate += func.metrics.coldStartsRate
                 avgColdStartDuration += func.metrics.avgColdStartDuration
@@ -1037,7 +1041,8 @@ function buildKafkaMessage(functions,period,limit,condAction){
             message.functions.push({
                                     "name":funcs[0].function.name,
                                     "arrivalRate":funcs[0].metrics.arrivalRate,
-                                    "avgDuration":funcs[0].metrics.duration
+                                    "avgDuration":funcs[0].metrics.duration,
+                                    "memory":funcs[0].limits.memory
                                     })  
             avgColdStartRate += funcs[0].metrics.coldStartsRate
             avgColdStartDuration += funcs[0].metrics.avgColdStartDuration

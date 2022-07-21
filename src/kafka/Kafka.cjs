@@ -7,6 +7,8 @@ const ssl = !!sasl
 
 // This creates a client instance that is configured to connect to the Kafka broker provided by
 // the environment variable KAFKA_BOOTSTRAP_SERVER
+console.log("conf.KAFKA_BOOTSTRAP_SERVER")
+console.log(conf.KAFKA_BOOTSTRAP_SERVER)
 const kafka = new Kafka({
   clientId: 'faas-optimizer',
   brokers: [conf.KAFKA_BOOTSTRAP_SERVER],

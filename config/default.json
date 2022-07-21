@@ -50,8 +50,8 @@
     },
     "simulation":true,
     "kafka":{
-        "endpoint":"http://localhost:9092/",
+        "endpoint":"http://192.168.0.108:9092/",
         "topic":"TEST",
-        "boostrap_server":"localhost:9092"
+        "boostrap_server":"192.168.0.108:9092"
     }
 }

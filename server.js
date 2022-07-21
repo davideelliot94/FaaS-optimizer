@@ -19,27 +19,35 @@ app.listen(conf.PORT, async ()=>{
             console.error(error)
             process.exit(1)
         }
+        //doTestKafka()
     }
-    /*
-    let x = 0;
+    
+    
+
+    logger.log("Running on "+ conf.ENVIRONMENT,"info");
+    logger.log("HOST: "+conf.API_HOST,"info");
+    logger.log("METRICS_ENDPOINT: "+conf.METRICS_ENDPOINT,"info");
+    logger.log("Listening on port "+ conf.PORT,"info");
+});
+
+async function doTestKafka(){
+  let x = 0;
     const mex = {
-      "names":["F1","F2","F3","F4","F5"],
-      "compositions" : ["F1,F2,F3","F4,F5"],
+      "name":"test",
       "functions":[
-        {"name":"F1","arrivalRate":3,"avgDuration":20},
-        {"name":"F2","arrivalRate":3,"avgDuration":15},
-        {"name":"F3","arrivalRate":3,"avgDuration":10},
-        {"name":"F4","arrivalRate":3,"avgDuration":15},
-        {"name":"F5","arrivalRate":3,"avgDuration":20}
+        {"name":"F1","arrivalRate":3,"avgDuration":20,"memory":256},
+        {"name":"F2","arrivalRate":3,"avgDuration":15,"memory":256},
+        {"name":"F3","arrivalRate":3,"avgDuration":10,"memory":256},
+        {"name":"F4","arrivalRate":3,"avgDuration":15,"memory":256},
+        {"name":"F5","arrivalRate":3,"avgDuration":20,"memory":256}
 	    ],
 	    "funcsNumber":5,// int
-      "seqNumber":2,// int
-      "condActionDuration":0, //double seqDuration+ seqWaitTime/seqLen
+      "condActionDuration":0.3, //double seqDuration+ seqWaitTime/seqLen
       "avgColdStartRate":0 ,// double
       "avgColdStartDuration":20,//double
-      "stopTime":60, // int
-      "cpus":20000,//int
-      "mem":999999999, // int
+      "stopTime":360, // int
+      "cpus":4,//int
+      "mem":8196, // int
       "num":1, //Int
       "maxParallelism":10,//Int
       "minParallelism":0 //Int
@@ -65,12 +73,7 @@ app.listen(conf.PORT, async ()=>{
           } catch (error) {
             console.error('Error publishing message', error)
           }
-    }*/
-    
-    logger.log("Running on "+ conf.ENVIRONMENT,"info");
-    logger.log("HOST: "+conf.API_HOST,"info");
-    logger.log("METRICS_ENDPOINT: "+conf.METRICS_ENDPOINT,"info");
-    logger.log("Listening on port "+ conf.PORT,"info");
-});
+    }
+}
 
 //ANCORA NON HO CAPITO COME FARE CON LE KEY -> per questo "ignore_certs"
